@@ -4,7 +4,7 @@ import { shortName } from "../engine/tasks";
 import { fold } from "../engine/text";
 import { B2_UNLOCK, LEVEL_NUM, levelLabel, overall } from "../engine/level";
 import { buyUpgrade, canUnlock, hallUnlocked, recommendFor, unlock } from "../game/actions";
-import { factoryRate, fmt, perSentence, storageHours } from "../game/economy";
+import { factoryRate, fmt, fmtRate, perSentence, rateParts, storageHours } from "../game/economy";
 import type { GameState } from "../game/state";
 import { BUILDING_EFFECT, COUNTRIES, GROUPS, UPGRADES, upgradeCost, type BuildingId, type UpgradeDef, type UpgradeGroup } from "../game/upgrades";
 import { store, useCatalog, useGame } from "../store/store";
@@ -58,7 +58,7 @@ function currentValue(s: GameState, u: UpgradeDef, rate: number): string | null 
   if (u.group === "gebaeude") {
     const e = BUILDING_EFFECT[u.id as BuildingId];
     if (e.satz || e.all) return `jetzt ${fmt(perSentence(s))} Taler pro Satz`;
-    if (e.prod) return `jetzt ${fmt(rate)} Taler/h`;
+    if (e.prod) return `jetzt ${fmtRate(rate)}`;
     if (e.lager) return `jetzt ${storageHours(s)} h Lager`;
     return null;
   }
@@ -75,7 +75,7 @@ function currentValue(s: GameState, u: UpgradeDef, rate: number): string | null 
     case "export":
       return `${s.upgrades.export ?? 0} Exportländer`;
     case "fliessband":
-      return `jetzt ${fmt(rate)} Taler/h`;
+      return `jetzt ${fmtRate(rate)}`;
     case "lagerhalle":
       return `jetzt ${storageHours(s)} h Lager`;
     default:
@@ -161,6 +161,7 @@ function UpgradeShop() {
   const s = useGame();
   const catalog = useCatalog();
   const rate = factoryRate(s, catalog, Date.now());
+  const shown = rateParts(rate);
   return (
     <>
       <section className="card stack">
@@ -170,8 +171,8 @@ function UpgradeShop() {
             <span className="l">Taler pro Satz</span>
           </div>
           <div className="stat">
-            <span className="v">{fmt(rate)}</span>
-            <span className="l">Taler pro Stunde</span>
+            <span className="v">{shown.n}</span>
+            <span className="l">Taler pro {shown.unit}</span>
           </div>
           <div className="stat">
             <span className="v">{storageHours(s)} h</span>

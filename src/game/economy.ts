@@ -201,6 +201,20 @@ export function xpForLevel(lvl: number): number {
 }
 
 /** Compact number display: 1.234 → 1,2 Tsd. etc. (German style). */
+/** A production rate for people: per hour when it is at least 10 an hour, otherwise per day. */
+/** A rate as number and unit: per hour, or per day while it is too small to read per hour. */
+export function rateParts(perHour: number): { n: string; unit: "Stunde" | "Tag" } {
+  if (perHour >= 10) return { n: fmt(perHour), unit: "Stunde" };
+  const day = perHour * 24;
+  return { n: day >= 10 ? fmt(day) : day.toLocaleString("de-DE", { maximumFractionDigits: 1 }), unit: "Tag" };
+}
+
+export function fmtRate(perHour: number, short = false): string {
+  const { n, unit } = rateParts(perHour);
+  if (short) return `+${n}/${unit === "Stunde" ? "h" : "Tag"}`;
+  return `${n} Taler pro ${unit}`;
+}
+
 export function fmt(n: number): string {
   const a = Math.abs(n);
   if (a < 1000) return Math.floor(n).toLocaleString("de-DE");

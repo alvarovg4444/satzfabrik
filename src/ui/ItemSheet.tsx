@@ -1,7 +1,7 @@
 import type { Item } from "../content/types";
 import { HALLS, TOPICS } from "../content/types";
 import { dueInDays, retrievability, rustOf, STAGE_NAMES, stageOf } from "../engine/srs";
-import { fmt } from "../game/economy";
+import { fmtRate } from "../game/economy";
 import { machineRate } from "../game/economy";
 import { useCatalog, useGame } from "../store/store";
 import { Pips, Sheet, SpeakButton } from "./common";
@@ -109,7 +109,7 @@ export function ItemSheet({ it, onClose, onPractice }: { it: Item; onClose: () =
             <span className="row">
               <Pips stage={stage} /> <b>{STAGE_NAMES[stage]}</b>
             </span>
-            <span className="num small">{fmt(machineRate(s, it, card, now, catalog))} Taler/h</span>
+            <span className="num small">{fmtRate(machineRate(s, it, card, now, catalog))}</span>
           </div>
           <p className="small muted">
             {stage === 0

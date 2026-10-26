@@ -48,7 +48,7 @@ vi.mock("../src/content/catalog", () => {
 
 const { makeCatalog } = await import("../src/content/catalog");
 const { applyGrade, buyUpgrade, claimChest, finishShift, rollover, tick, unlock } = await import("../src/game/actions");
-const { factoryRate, idleEarnings, levelOf, perSentence, storageHours, xpForLevel } = await import("../src/game/economy");
+const { factoryRate, fmtRate, idleEarnings, levelOf, perSentence, storageHours, xpForLevel } = await import("../src/game/economy");
 const { newGame } = await import("../src/game/state");
 const { buildShift } = await import("../src/engine/tasks");
 const { coerceGrade } = await import("../src/ai/schema");
@@ -135,6 +135,13 @@ describe("economy", () => {
     for (let i = 0; i < 12; i++) buyUpgrade(s, "lagerhalle");
     expect(s.upgrades.lagerhalle).toBe(8);
     expect(storageHours(s)).toBe(40);
+  });
+
+  it("shows small rates per day instead of 0 per hour", () => {
+    expect(fmtRate(120)).toBe("120 Taler pro Stunde");
+    expect(fmtRate(120, true)).toBe("+120/h");
+    expect(fmtRate(0.05)).toBe("1,2 Taler pro Tag");
+    expect(fmtRate(1, true)).toBe("+24/Tag");
   });
 });
 

@@ -6,7 +6,7 @@ import { levelLabel, overall } from "../engine/level";
 import { shortName } from "../engine/tasks";
 import { dayKey } from "../engine/text";
 import { chestReady, claimChest, hallUnlocked } from "../game/actions";
-import { factoryRate, fmt, levelOf, machineRate, perSentence, storageHours } from "../game/economy";
+import { factoryRate, fmt, fmtRate, levelOf, machineRate, perSentence, storageHours } from "../game/economy";
 import { orderText } from "../game/orders";
 import type { GameState } from "../game/state";
 import { store, useCatalog, useGame } from "../store/store";
@@ -43,7 +43,7 @@ function Machine({ it, card, s, onOpen }: { it: Item; card: CardState; s: GameSt
       </span>
       <span className="meta">
         <span>{status}</span>
-        <span>{stage === 0 ? "—" : `+${fmt(rate)}/h`}</span>
+        <span>{stage === 0 ? "—" : fmtRate(rate, true)}</span>
       </span>
     </button>
   );
@@ -208,7 +208,7 @@ export function FactoryView({
           </span>
           <div className="big">+{fmt(perSentence(s))} Taler</div>
           <p className="muted small">
-            Dazu {fmt(rate)} Taler pro Stunde aus Maschinen und Personal, auch wenn die App zu ist (bis zu {storageHours(s)} Stunden).
+            Dazu {fmtRate(rate)} aus Maschinen und Personal, auch wenn die App zu ist (bis zu {storageHours(s)} Stunden am Stück).
           </p>
           <p className="small">
             Dein Niveau: <b>{levelLabel(overall(s.level).theta).code}</b>

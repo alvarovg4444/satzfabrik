@@ -1,4 +1,4 @@
-import { factoryRate, fmt, levelOf, xpForLevel } from "../game/economy";
+import { factoryRate, fmt, fmtRate, levelOf, xpForLevel } from "../game/economy";
 import { emptyDay } from "../game/state";
 import { dayKey } from "../engine/text";
 import { useCatalog, useGame } from "../store/store";
@@ -21,10 +21,10 @@ export function TopBar({ onSettings }: { onSettings: () => void }) {
         <div className="brand" aria-label="Satzfabrik">
           Satz<b>fabrik</b>
         </div>
-        <div className="wallet" title="Taler und Produktion pro Stunde">
+        <div className="wallet" title="Taler und was die Fabrik ohne dich produziert">
           <span className="coin-dot" aria-hidden="true" />
           <LiveCoins value={s.taler} perSecond={rate / 3600} format={fmt} />
-          <span className="rate">+{fmt(rate)}/h</span>
+          <span className="rate">{fmtRate(rate, true)}</span>
         </div>
         <button type="button" className="iconbtn" aria-label="Einstellungen" onClick={onSettings}>
           <Icon name="gear" />
