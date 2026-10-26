@@ -61,11 +61,11 @@ Claude subscription (the artifact `sample` capability), and progress is saved pr
 person in the artifact's database, so it syncs between phone and laptop. Claude asks once for
 permission at your first correction.
 
-**As an app on your phone (no App Store).** The repository's `docs/` folder is the
+**As an app on your phone (no App Store).** The `docs/` folder is the
 installable version (a web app with a manifest and a service worker), served by GitHub Pages
-at <https://filler6117.github.io/parrotgame/>. To switch it on once: repository **Settings →
-Pages → Build and deployment**, source **Deploy from a branch**, the branch with the latest
-release and folder **/docs**, then **Save**. Open the address on the phone and add it to the
+at <https://alvarovg4444.github.io/satzfabrik/>. To switch it on once: repository **Settings →
+Pages → Build and deployment**, source **Deploy from a branch**, branch **main** and
+folder **/docs**, then **Save**. Open the address on the phone and add it to the
 home screen (iPhone: Safari → Share → Add to Home Screen; Android: Chrome menu → Install
 app). It starts full screen, works offline, and has the neural voices and in-app dictation.
 Corrections there use your own Claude API key (Haiku 5.5 costs well under $1 a month at 20
@@ -77,7 +77,6 @@ it in a browser. Outside claude.ai it uses your own key or a local model (the ne
 need the app version: a page opened from disk has no Cache Storage). To build it yourself:
 
 ```bash
-cd satzfabrik
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # dist/index.html (single file) + dist/artifact.html (claude.ai page)

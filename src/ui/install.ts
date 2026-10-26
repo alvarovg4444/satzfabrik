@@ -5,7 +5,7 @@
  */
 
 /** Where the app version is published (GitHub Pages, from the repository's docs/ folder). */
-export const APP_URL = "https://filler6117.github.io/parrotgame/";
+export const APP_URL = "https://alvarovg4444.github.io/satzfabrik/";
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;

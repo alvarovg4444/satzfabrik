@@ -1,10 +1,10 @@
-// Writes the installable app version to ../docs (GitHub Pages: branch, folder /docs):
+// Writes the installable app version to docs/ (GitHub Pages: branch main, folder /docs):
 // the single-file game plus a web manifest, icons and a service worker for offline play.
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const root = new URL("../", import.meta.url);
-const out = new URL("../docs/", root);
+const out = new URL("docs/", root);
 mkdirSync(out, { recursive: true });
 
 const html = readFileSync(new URL("dist/index.html", root), "utf8");

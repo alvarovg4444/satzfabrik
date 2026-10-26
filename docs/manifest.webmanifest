@@ -1,0 +1,17 @@
+{
+  "name": "Satzfabrik",
+  "short_name": "Satzfabrik",
+  "description": "Deutsch schreiben, Fabrik bauen: ein Idle-Spiel, in dem du nur mit echten deutschen Sätzen Geld verdienst.",
+  "lang": "de",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e9e6df",
+  "theme_color": "#e9e6df",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
