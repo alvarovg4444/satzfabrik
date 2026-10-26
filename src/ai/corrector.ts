@@ -2,9 +2,9 @@ import type { Catalog } from "../content/catalog";
 import type { Item } from "../content/types";
 import type { Task } from "../engine/tasks";
 import { mentions, sameSentence } from "../engine/text";
-import { genPrompt, gradePrompt, type ExplainLang, type GenRequest } from "./prompts";
+import { coachPrompt, genPrompt, gradePrompt, type CoachInput, type ExplainLang, type GenRequest } from "./prompts";
 import { AIError, type AIProvider } from "./providers";
-import { coerceGen, coerceGrade, type GradeResult, type TargetStatus } from "./schema";
+import { coerceCoach, coerceGen, coerceGrade, type CoachOutput, type GradeResult, type TargetStatus } from "./schema";
 
 /** Correct one answer. Throws AIError when no corrector can answer (the UI then offers self-check). */
 export async function gradeAnswer(
@@ -130,4 +130,16 @@ export async function freshenTasks(
     out.set(key, { scenario: { de: g.scenario_de, en: g.scenario_en || "" } });
   }
   return out;
+}
+
+/** The coach reads a finished shift and picks the grammar the next shifts should practise. */
+export async function diagnoseShift(
+  provider: AIProvider,
+  input: CoachInput,
+  catalog: Catalog,
+  opts: { lang: ExplainLang; level: string; signal?: AbortSignal },
+): Promise<CoachOutput> {
+  if (provider.id === "offline") throw new AIError("No coach configured.", "no_access");
+  const raw = await provider.json(coachPrompt(input, catalog, opts.lang, opts.level), "coach", { signal: opts.signal });
+  return coerceCoach(raw);
 }

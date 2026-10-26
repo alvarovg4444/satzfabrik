@@ -1,7 +1,8 @@
 import type { Catalog } from "../content/catalog";
 import { GRAMMAR } from "../content/catalog";
-import { ERROR_TYPES, type Item } from "../content/types";
+import { ERROR_TYPES, type ErrorType, type GramItem, type Item } from "../content/types";
 import type { Task } from "../engine/tasks";
+import type { TargetStatus } from "./schema";
 
 export type ExplainLang = "en" | "es" | "pt" | "it" | "fr" | "de";
 
@@ -128,4 +129,77 @@ ${lines.join("\n")}
 
 Reply with only this JSON, no other text:
 {"tasks":[{"key":"...","scenario_de":"...","scenario_en":"...","source_en":"","reference_de":""}]}`;
+}
+
+// --- the coach -------------------------------------------------------------------
+
+export interface CoachMistake {
+  wrong: string;
+  right: string;
+  type: ErrorType;
+  /** Grammar id the corrector named for the mistake, or "". */
+  rule: string;
+  explain: string;
+}
+
+export interface CoachInput {
+  sentences: number;
+  mistakes: CoachMistake[];
+  /** Every target of the shift with how it was used. */
+  results: { id: string; status: TargetStatus }[];
+  /** "Wortschatz A2+, Verben B1, …" */
+  areas: string;
+  /** Grammar ids with mistakes in earlier shifts. */
+  weak: string[];
+  current: { id: string; left: number }[];
+  /** The grammar the coach may choose from. */
+  allowed: GramItem[];
+}
+
+export function coachPrompt(inp: CoachInput, catalog: Catalog, lang: ExplainLang, level: string): string {
+  const L = EXPLAIN_LANGS[lang].prompt;
+  const name = (id: string) => {
+    const it = catalog.get(id);
+    return it ? (it.kind === "gram" ? it.name : it.de) : id;
+  };
+  const mistakes = inp.mistakes.length
+    ? inp.mistakes.map((m) => `- "${m.wrong}" → "${m.right}" (${m.type}${m.rule ? `, ${m.rule}` : ""}): ${m.explain}`).join("\n")
+    : "(none)";
+  const tally = new Map<string, Map<string, number>>();
+  for (const r of inp.results) {
+    const t = tally.get(r.id) ?? new Map<string, number>();
+    t.set(r.status, (t.get(r.status) ?? 0) + 1);
+    tally.set(r.id, t);
+  }
+  const results = [...tally]
+    .map(([id, t]) => `- ${name(id)} (${id}): ${[...t].map(([st, n]) => `${st} ${n}×`).join(", ")}`)
+    .join("\n");
+  const weak = inp.weak.length ? inp.weak.map((id) => `${id} (${name(id)})`).join(", ") : "none";
+  const current = inp.current.length ? inp.current.map((c) => `${c.id} (${c.left} more shifts)`).join(", ") : "nothing";
+  const allowed = inp.allowed.map((g) => `${g.id}: ${g.name} (${g.level})`).join("\n");
+  return `You are the learning coach in "Satzfabrik", a German writing trainer for an adult learner at about level ${level}. After every practice shift you read what happened and decide which grammar topics the next shifts should practise extra.
+
+THE SHIFT: ${inp.sentences} sentences written.
+Mistakes (learner wrote → correction, error type, grammar topic, explanation):
+${mistakes}
+
+Targets practised and how they were used:
+${results || "(none)"}
+
+Level per area: ${inp.areas}
+Weak spots from earlier shifts: ${weak}
+Already in focus: ${current}
+
+How to decide:
+1. Look for patterns: the same kind of mistake twice or more, or a mistake that repeats an earlier weak spot. One typo or one slip is not a pattern.
+2. For each pattern choose the ONE grammar topic from the list below that explains it best, for example "mit den Kollege" → the topic for prepositions with the dative, a verb not at the end after "weil" → the topic for "weil". Prefer topics at or below the learner's level.
+3. Choose at most 3 topics, most important first. If there is no clear pattern, choose none. Only repeat a topic that is already in focus if the mistake happened again in this shift.
+4. "why": max 12 words in ${L}, naming the learner's own mistake (quote it briefly).
+5. "note": 1–2 short sentences in ${L} for the learner: one concrete thing that went well, and what the next shifts will practise (or that nothing needs extra practice). Friendly and specific, no generic praise.
+
+Grammar topics you may choose (id: name (level)):
+${allowed}
+
+Reply with only this JSON, no other text:
+{"note":"...","focus":[{"id":"g.praep-dativ","why":"..."}]}`;
 }

@@ -4,6 +4,7 @@ import type { ErrorType, Item } from "../content/types";
 import { newLevelState, type LevelState } from "../engine/level";
 import type { CardState } from "../engine/srs";
 import type { TaskType } from "../engine/tasks";
+import type { CoachState } from "./coach";
 import type { Order } from "./orders";
 import type { UpgradeId } from "./upgrades";
 
@@ -93,6 +94,8 @@ export interface GameState {
   level: LevelState;
   /** Blueprints the level engine delivered today. */
   delivery?: { day: string; ids: string[] };
+  /** The coach's last reading and the grammar in focus. */
+  coach?: CoachState;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

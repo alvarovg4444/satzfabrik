@@ -1399,3 +1399,53 @@ textarea.input {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* the coach: what to work on next */
+.coach-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-left: 4px solid var(--ok);
+  padding: 2px 0 2px 12px;
+}
+.coach-box p {
+  margin: 0;
+}
+.coach-focus {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.coach-focus li {
+  display: flex;
+  align-items: center;
+  gap: 6px 12px;
+  flex-wrap: wrap;
+}
+.coach-topic {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.coach-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tag.coach,
+.task-type .tag.coach {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  white-space: nowrap;
+}

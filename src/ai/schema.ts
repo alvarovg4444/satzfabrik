@@ -59,6 +59,14 @@ export const GenSchema = z.object({
 
 export type GenOutput = z.infer<typeof GenSchema>;
 
+/** The coach's reading of a whole shift: a note for the learner and the grammar to practise next. */
+export const CoachSchema = z.object({
+  note: z.string(),
+  focus: z.array(z.object({ id: z.string(), why: z.string() })),
+});
+
+export type CoachOutput = z.infer<typeof CoachSchema>;
+
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -128,6 +136,18 @@ export function coerceGen(raw: unknown): GenOutput {
         reference_de: str(t.reference_de),
       }))
       .filter((t) => t.key),
+  };
+}
+
+export function coerceCoach(raw: unknown): CoachOutput {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const list = Array.isArray(o.focus) ? o.focus : [];
+  return {
+    note: str(o.note),
+    focus: list
+      .filter((f): f is Record<string, unknown> => !!f && typeof f === "object")
+      .map((f) => ({ id: str(f.id), why: str(f.why) }))
+      .filter((f) => f.id),
   };
 }
 

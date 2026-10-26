@@ -6,6 +6,7 @@ import { isDue, newCard, review, rustOf, stageOf } from "../engine/srs";
 import type { Task } from "../engine/tasks";
 import { dayKey, daysBetween, hash, wordCount } from "../engine/text";
 import { ACHIEVEMENTS, type Achievement } from "./achievements";
+import { noteFocusResult } from "./coach";
 import { comboCap, factoryRate, idleEarnings, levelOf, perSentence, shiftBonus, taskReward } from "./economy";
 import { dailyOrders, openChest, type ChestPrize, type Order } from "./orders";
 import { emptyDay, type DayStat, type GameState } from "./state";
@@ -340,6 +341,7 @@ export function applyGrade(
     if (it?.kind === "gram" && !SUCCESS.includes(t.status)) {
       s.stats.ruleHeat[t.id] = (s.stats.ruleHeat[t.id] ?? 0) + 1;
     }
+    noteFocusResult(s, t.id, SUCCESS.includes(t.status));
   }
 
   // Combo and reward

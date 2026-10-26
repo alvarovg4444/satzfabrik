@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { GenSchema, GradeSchema, parseJsonLoose } from "./schema";
+import { CoachSchema, GenSchema, GradeSchema, parseJsonLoose } from "./schema";
 
 /**
  * Where corrections come from:
@@ -15,7 +15,7 @@ export interface AIProvider {
   id: ProviderId;
   label: string;
   /** Returns the parsed JSON object the model produced. */
-  json(prompt: string, kind: "grade" | "gen", opts: { careful?: boolean; signal?: AbortSignal }): Promise<unknown>;
+  json(prompt: string, kind: "grade" | "gen" | "coach", opts: { careful?: boolean; signal?: AbortSignal }): Promise<unknown>;
 }
 
 export interface AISettings {
@@ -83,9 +83,9 @@ function sampleProvider(sample: SampleFn): AIProvider {
     async json(prompt, kind, opts) {
       try {
         return await sample.json(prompt, {
-          modelTier: kind === "grade" && opts.careful ? "default" : "quick",
+          modelTier: (kind === "grade" && opts.careful) || kind === "coach" ? "default" : "quick",
           signal: opts.signal,
-          ...(kind === "gen" ? { cache: false } : {}),
+          ...(kind !== "grade" ? { cache: false } : {}),
         });
       } catch (e) {
         const err = e as SampleError;
@@ -121,8 +121,8 @@ function anthropicProvider(key: string, model: string): AIProvider {
               ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
               : {}),
             output_config: {
-              effort: kind === "grade" && opts.careful ? "medium" : "low",
-              format: betaZodOutputFormat(kind === "grade" ? GradeSchema : GenSchema),
+              effort: (kind === "grade" && opts.careful) || kind === "coach" ? "medium" : "low",
+              format: betaZodOutputFormat(kind === "grade" ? GradeSchema : kind === "coach" ? CoachSchema : GenSchema),
             },
             messages: [{ role: "user", content: prompt }],
           },

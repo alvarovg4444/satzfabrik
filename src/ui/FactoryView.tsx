@@ -14,6 +14,7 @@ import { Gear, Icon, Pips, Sheet, toast } from "./common";
 import { FactoryMap } from "./FactoryMap";
 import { confetti, sfx } from "./fx";
 import { ItemSheet } from "./ItemSheet";
+import { CoachNote } from "./ShiftView";
 
 const HALL_ORDER: HallId[] = ["satzbau", "woerter", "verben", "faelle", "redemittel"];
 
@@ -239,6 +240,12 @@ export function FactoryView({
           </button>
         </div>
       </section>
+
+      {s.coach?.focus.length ? (
+        <section className="card">
+          <CoachNote compact onPractice={onPractice} />
+        </section>
+      ) : null}
 
       {view === "list" ? <Orders /> : null}
 

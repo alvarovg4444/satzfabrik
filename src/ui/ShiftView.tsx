@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { checkRework, freshenTasks, gradeAnswer, selfGrade, type SelfRating } from "../ai/corrector";
+import { checkRework, diagnoseShift, freshenTasks, gradeAnswer, selfGrade, type SelfRating } from "../ai/corrector";
 import { AIError } from "../ai/providers";
 import type { GradeResult, TargetStatus } from "../ai/schema";
 import { ERROR_TYPES, type Item } from "../content/types";
@@ -8,6 +8,7 @@ import { buildShift, introTask, shortName, taskForItem, taskTitle, type Task } f
 import { dayKey, diffWords, mentions, wordCount } from "../engine/text";
 import { refreshCount, refreshers, levelLabel, overall } from "../engine/level";
 import { applyGrade, applyRework, deliver, finishShift, hallUnlocked, newLeftToday, weakRules, type TaskEvents } from "../game/actions";
+import { afterShift, applyDiagnosis, cleanShift, coachInput, emptyLog, FOCUS_DONE, focusForShift, localDiagnosis, type ShiftLog } from "../game/coach";
 import { fmt } from "../game/economy";
 import { orderText } from "../game/orders";
 import type { GameState } from "../game/state";
@@ -26,9 +27,22 @@ interface Summary {
   repaired: string[];
   stageUps: number;
   errors: Record<string, number>;
+  /** Mistakes and target results, for the coach. */
+  log: ShiftLog;
 }
 
-const emptySummary = (): Summary => ({ done: 0, good: 0, perfect: 0, taler: 0, built: [], confirmed: [], repaired: [], stageUps: 0, errors: {} });
+const emptySummary = (): Summary => ({
+  done: 0,
+  good: 0,
+  perfect: 0,
+  taler: 0,
+  built: [],
+  confirmed: [],
+  repaired: [],
+  stageUps: 0,
+  errors: {},
+  log: emptyLog(),
+});
 
 /** The learner's current level for the AI prompts, e.g. "A2+". */
 function levelCode(s: GameState): string {
@@ -142,6 +156,7 @@ function TaskHeader({ task, index, total, onEnd }: { task: Task; index: number; 
           {task.reason === "weak" ? <span className="tag due">Schwachstelle</span> : null}
           {task.reason === "practice" ? <span className="tag">Extra</span> : null}
           {task.reason === "refresh" ? <span className="tag new">Grundlagen</span> : null}
+          {task.reason === "focus" ? <span className="tag coach">Coach</span> : null}
         </span>
         <span className="row" style={{ gap: 8 }}>
           {s.combo > 1 ? <span className="combo">×{s.combo.toFixed(1)}</span> : null}
@@ -462,6 +477,52 @@ function SelfCheck({ task, answer, onRate }: { task: Task; answer: string; onRat
   );
 }
 
+/** The coach's reading of the shift that just ended. */
+export function CoachNote({ thinking = false, compact = false, onPractice }: { thinking?: boolean; compact?: boolean; onPractice?: (id: string) => void }) {
+  const s = useGame();
+  const catalog = useCatalog();
+  if (thinking) {
+    return (
+      <div className="coach-box">
+        <span className="eyebrow">Dein Coach</span>
+        <p className="muted">Der Coach liest deine Schicht …</p>
+      </div>
+    );
+  }
+  const c = s.coach;
+  if (!c || (compact && !c.focus.length)) return null;
+  return (
+    <div className="coach-box">
+      <span className="eyebrow">Dein Coach{c.by === "local" ? " (ohne KI)" : ""}</span>
+      <p>{c.note}</p>
+      {c.focus.length ? (
+        <ul className="coach-focus">
+          {c.focus.map((f) => {
+            const it = catalog.get(f.id);
+            const name = it?.kind === "gram" ? it.name : f.id;
+            return (
+              <li key={f.id}>
+                <div className="coach-topic">
+                  <b>{name}</b>
+                  {f.why ? <span className="small muted">{f.why}</span> : null}
+                </div>
+                <div className="coach-actions">
+                  <span className="tag coach">{f.left === 1 ? "noch 1 Schicht" : `noch ${f.left} Schichten`}</span>
+                  {onPractice ? (
+                    <button type="button" className="btn small" onClick={() => onPractice(f.id)}>
+                      Üben
+                    </button>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function StartScreen({ onStart }: { onStart: (extra: boolean) => void }) {
   const s = useGame();
   const now = Date.now();
@@ -534,7 +595,9 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
   const [answer, setAnswer] = useState("");
   const [warn, setWarn] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary>(emptySummary);
+  const [coaching, setCoaching] = useState(false);
   const ctlRef = useRef<AbortController | null>(null);
+  const coachRef = useRef<AbortController | null>(null);
   const genRef = useRef<AbortController | null>(null);
 
   const task = tasks[index];
@@ -552,6 +615,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
   useEffect(() => () => {
     ctlRef.current?.abort();
     genRef.current?.abort();
+    coachRef.current?.abort();
   }, []);
 
   // "Start shift" pressed elsewhere (factory floor, onboarding): start right away unless one is running.
@@ -600,6 +664,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
         catalog,
         now,
         weakRules: weakRules(st),
+        focus: focusForShift(st),
         size,
         extra: asExtra,
         maxNew: Math.min(newLeft, Math.max(3, Math.min(6, size - dueCount))),
@@ -650,9 +715,44 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
       setPhase({ k: "done", bonus: r.bonus });
       for (const o of r.orders) toast(<span>Auftrag erledigt: <b>+{fmt(o.reward)}</b></span>);
       for (const a of r.achievements) toast(<span>Erfolg: <b>{a.de}</b> +{fmt(a.reward)}</span>);
+      const practised = new Set(tasks.slice(0, index + 1).flatMap((t) => t.targets));
+      const learned = store.update((d) => afterShift(d, practised));
+      for (const f of learned) {
+        const it = catalog.get(f.id);
+        if (it?.kind === "gram" && f.streak >= FOCUS_DONE) toast(<span>Coach: <b>{it.name}</b> sitzt jetzt. Fokus erledigt!</span>, 4000);
+      }
+      runCoach(summary.log, graded);
     } else {
       setPhase(graded > 0 ? { k: "done", bonus: 0 } : { k: "idle" });
     }
+  };
+
+  /** The coach reads the shift: with the AI when there is one, else from the corrector's grammar ids. */
+  const runCoach = (log: ShiftLog, sentences: number) => {
+    const st = store.get();
+    const local = () => store.update((d, c) => applyDiagnosis(d, c, localDiagnosis(d, c, log), "local", Date.now()));
+    if (cleanShift(log) || meta.provider.id === "offline") {
+      local();
+      return;
+    }
+    coachRef.current?.abort();
+    const ctl = new AbortController();
+    coachRef.current = ctl;
+    setCoaching(true);
+    diagnoseShift(meta.provider, coachInput(st, catalog, log, sentences), catalog, {
+      lang: st.settings.explainLang,
+      level: levelCode(st),
+      signal: ctl.signal,
+    })
+      .then((d) => {
+        if (!ctl.signal.aborted) store.update((x, c) => applyDiagnosis(x, c, d, "ai", Date.now()));
+      })
+      .catch(() => {
+        if (!ctl.signal.aborted) local();
+      })
+      .finally(() => {
+        if (coachRef.current === ctl) setCoaching(false);
+      });
   };
 
   const next = () => {
@@ -682,6 +782,10 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
         repaired: [...sm.repaired, ...events.repaired],
         stageUps: sm.stageUps + events.stageUps.length,
         errors,
+        log: {
+          mistakes: [...sm.log.mistakes, ...grade.errors.map((e) => ({ wrong: e.wrong, right: e.right, type: e.type, rule: e.rule, explain: e.explain }))],
+          results: [...sm.log.results, ...grade.targets.map((t) => ({ id: t.id, status: t.status }))],
+        },
       };
     });
     setPhase({ k: "feedback", grade, events, answer: text, before: snapshot });
@@ -814,6 +918,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
               .join(", ")}
           </p>
         ) : null}
+        <CoachNote thinking={coaching} />
         <div className="row">
           <button type="button" className="btn primary" onClick={() => start(false)}>
             Noch eine Schicht

@@ -31,7 +31,7 @@ export interface Task {
   /** Soft goal shown as a word counter. */
   minWords?: number;
   /** Why this task is in the shift. */
-  reason: "new" | "due" | "weak" | "practice" | "refresh";
+  reason: "new" | "due" | "weak" | "practice" | "refresh" | "focus";
 }
 
 const DE_TYPE: Record<Exclude<TaskType, "intro">, { de: string; en: string }> = {
@@ -218,6 +218,8 @@ export interface ShiftInput {
   maxNew?: number;
   /** A1 basics to check again; the learner has no machine for them yet. */
   refresh?: Item[];
+  /** Grammar the coach put in focus: practised extra, early in the shift. */
+  focus?: string[];
 }
 
 /**
@@ -246,10 +248,12 @@ export function buildShift(input: ShiftInput): Task[] {
   const used = new Set<string>();
   const out: Task[] = [];
 
+  const focus = new Set(input.focus ?? []);
+  // A focus topic the learner has no machine for yet comes as a blueprint, even past today's limit.
   const blueprints = owned
     .filter((c) => stageOf(c) === 0)
-    .sort((a, b) => a.unlockedAt - b.unlockedAt)
-    .slice(0, maxNew);
+    .sort((a, b) => Number(focus.has(b.id)) - Number(focus.has(a.id)) || a.unlockedAt - b.unlockedAt)
+    .filter((c, i) => i < maxNew || focus.has(c.id));
   const fresh: Task[] = [];
   for (const c of blueprints) {
     const it = catalog.get(c.id)!;
@@ -262,6 +266,15 @@ export function buildShift(input: ShiftInput): Task[] {
     .filter((c) => !used.has(c.id) && isDue(c, now))
     .sort((a, b) => rustOf(b, now) - rustOf(a, now) || a.due - b.due);
 
+  const focused: Task[] = [];
+  for (const id of focus) {
+    const c = cards[id];
+    const it = catalog.get(id);
+    if (!c || !it || used.has(id) || stageOf(c) === 0) continue;
+    used.add(id);
+    focused.push(taskForItem(it, c, catalog, now, "focus"));
+  }
+
   let weak: Task | null = null;
   for (const id of input.weakRules) {
     const c = cards[id];
@@ -273,7 +286,7 @@ export function buildShift(input: ShiftInput): Task[] {
     }
   }
 
-  const budget = Math.max(0, size - fresh.length / 2 - (weak ? 1 : 0));
+  const budget = Math.max(0, size - fresh.length / 2 - (weak ? 1 : 0) - focused.length);
   const singles: Task[] = [];
   const mature: CardState[] = [];
   // Rustiest first. Mature items share combo tasks, so they cost less than a slot each.
@@ -324,6 +337,8 @@ export function buildShift(input: ShiftInput): Task[] {
   let fi = 0;
   let mi = 0;
   if (weak) maintenance.splice(Math.min(maintenance.length, 1 + Math.floor(r() * 3)), 0, weak);
+  // the coach's topics come early, while attention is fresh
+  focused.forEach((t, i) => maintenance.splice(Math.min(maintenance.length, i * 3), 0, t));
   while (fi < fresh.length || mi < maintenance.length) {
     if (mi < maintenance.length) out.push(maintenance[mi++]);
     if (fi < fresh.length) {
