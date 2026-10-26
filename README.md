@@ -23,6 +23,10 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
   your own machines. They need no AI.
 - **Idle-game loop.** Offline earnings with a storage cap, rust, upgrades, daily orders and a
   chest, streaks, a combo multiplier, levels and achievements.
+- **A pixel-art car factory.** The Fabrik tab draws your progress as a GBA-style map: workers
+  in yellow helmets, welding robots, word racks, forging presses, paint booths and craft
+  benches, one per item you own. Rusty machines show a "!" bubble, gold ones sparkle, and every
+  sentence you write today parks a new car outside. Tap any machine to see its word or rule.
 
 ## Run it
 
@@ -71,6 +75,10 @@ Code map:
   structured outputs, OpenAI-compatible), corrector.
 - `src/game/`: economy, upgrades, orders, achievements, and all state changes in `actions.ts`.
 - `src/store/`: the store, plus local and claude.ai cloud persistence.
+- `src/pixel/`: the factory map. `layout.ts` turns the save into positions (pure, tested),
+  `sprites.ts` and `machines.ts` hold the pixel art, `scene.ts` draws and animates it.
 - `src/ui/`: React screens.
+- `dev/`: sprite and scene preview pages for the pixel art (`npm run dev`, then open
+  `/dev/sprites.html` or `/dev/scene.html?mode=fresh|mid|big&night`).
 
 See [DESIGN.md](DESIGN.md) for how the learning model, correction and game economy work.

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Sprite preview</title>
+<style>
+  body { margin: 0; background: #e8e4d8; font: 12px system-ui, sans-serif; color: #283040; }
+  #root { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-end; }
+  figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  canvas { image-rendering: pixelated; background: #78c858; }
+  canvas.floor { background: #c8ccd0; }
+  canvas.none { background: transparent; }
+  #scene { padding: 0 16px 16px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="scene"></div>
+<script type="module" src="./preview.ts"></script>
+</body>
+</html>

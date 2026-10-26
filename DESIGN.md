@@ -89,6 +89,31 @@ interrupt your thinking. The local check, speech input (standalone) and the inst
 There are no lives, no hearts and no lost progress: mistakes are the learning, so a wrong
 answer still earns a little and shows you exactly what to fix.
 
+## The factory map
+
+The Fabrik tab shows the factory as pixel art, so progress is something you can see. The
+map is computed from the save, nothing else is stored.
+
+| On the map | What it means |
+|---|---|
+| A robot, rack crate, press, paint booth or bench | One item you own, in the hall it belongs to |
+| Blue see-through machine | Blueprint: bought, but never used in a correct sentence |
+| Brown machine with a "!" bubble | Due for review: use it in the next shift |
+| Gold machine with sparkles | Gold stage, stable for months |
+| Dashed yellow spots | Free room in the hall for the next blueprints |
+| Construction site with a crane | Hall that opens at a higher level |
+| Floors of the HQ, flag number | Your level (a floor every two levels) and your streak |
+| Cars in the lot ("HEUTE 9") | Sentences written today |
+| Containers, oil barrels, supervisors, stars on hall signs | Warehouse, machine oil, shift supervisor and hall upgrades |
+| Belt speed | How healthy the hall is: rust slows it down |
+
+Machines keep their place: they are ordered by the time you unlocked them, so new ones
+appear at the end of a hall. Words share racks (nine crates per rack; a big Anki import
+packs several words per crate) so the warehouse stays a sensible size. The map is drawn
+at a whole number of device pixels per pixel so it stays sharp, animates at 12 frames per
+second only while visible, stands still with reduced motion, and switches to night when the
+app is in dark mode. The list view is still there for screen readers and quick scanning.
+
 ## AI options
 
 - **claude.ai subscription:** the artifact calls Claude through the platform's `sample`

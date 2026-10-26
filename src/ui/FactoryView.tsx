@@ -8,7 +8,8 @@ import { factoryRate, fmt, levelOf, machineRate, storageHours } from "../game/ec
 import { orderText } from "../game/orders";
 import type { GameState } from "../game/state";
 import { store, useCatalog, useGame } from "../store/store";
-import { Gear, Icon, Pips, toast } from "./common";
+import { Gear, Icon, Pips, Sheet, toast } from "./common";
+import { FactoryMap } from "./FactoryMap";
 import { confetti, sfx } from "./fx";
 import { ItemSheet } from "./ItemSheet";
 
@@ -110,6 +111,50 @@ function Orders() {
   );
 }
 
+type View = "map" | "list";
+const VIEW_KEY = "satzfabrik.view";
+
+function readView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "map";
+  } catch {
+    return "map";
+  }
+}
+
+function saveView(v: View): void {
+  try {
+    localStorage.setItem(VIEW_KEY, v);
+  } catch {
+    // private mode: the choice just isn't remembered
+  }
+}
+
+/** The words stored in one rack of the warehouse map. */
+function RackSheet({ items, onClose, onOpen }: { items: Item[]; onClose: () => void; onOpen: (it: Item) => void }) {
+  const s = useGame();
+  const due = items.filter((it) => s.cards[it.id] && isDue(s.cards[it.id], Date.now())).length;
+  return (
+    <Sheet onClose={onClose} label="Regal im Wortlager">
+      <div className="spread">
+        <span className="eyebrow">Wortlager · Regal</span>
+        <button type="button" className="btn ghost small" onClick={onClose}>
+          Schließen
+        </button>
+      </div>
+      <h2>
+        {items.length} {items.length === 1 ? "Wort" : "Wörter"}
+        {due ? `, ${due} rosten` : ""}
+      </h2>
+      <div className="machines">
+        {items.map((it) =>
+          s.cards[it.id] ? <Machine key={it.id} it={it} card={s.cards[it.id]} s={s} onOpen={() => onOpen(it)} /> : null,
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
 function hallItems(s: GameState, catalog: Catalog, hall: HallId) {
   return catalog
     .inHall(hall)
@@ -133,6 +178,12 @@ export function FactoryView({
   const s = useGame();
   const catalog = useCatalog();
   const [open, setOpen] = useState<Item | null>(null);
+  const [rackItems, setRackItems] = useState<Item[] | null>(null);
+  const [view, setView] = useState<View>(readView);
+  const pick = (v: View) => {
+    setView(v);
+    saveView(v);
+  };
   const now = Date.now();
   const cards = Object.values(s.cards);
   const built = cards.filter((c) => stageOf(c) > 0).length;
@@ -180,39 +231,68 @@ export function FactoryView({
         </div>
       </section>
 
-      <Orders />
+      {view === "list" ? <Orders /> : null}
 
-      {HALL_ORDER.map((hall) => {
-        const h = HALLS[hall];
-        const items = hallItems(s, catalog, hall);
-        const unlocked = hallUnlocked(s, hall);
-        return (
-          <section key={hall} className="hall" aria-label={h.de}>
-            <div className="hall-head">
-              <h2>{h.de}</h2>
-              <span className="small muted">{h.blurb}</span>
-            </div>
-            {!unlocked ? (
-              <div className="locked">
-                Ab Level {h.unlockLevel} (du bist Level {lvl}). Schreib Sätze, um Erfahrung zu sammeln.
+      <div className="spread">
+        <h2>Deine Fabrik</h2>
+        <div className="seg" role="group" aria-label="Ansicht">
+          <button type="button" aria-pressed={view === "map"} onClick={() => pick("map")}>
+            Karte
+          </button>
+          <button type="button" aria-pressed={view === "list"} onClick={() => pick("list")}>
+            Liste
+          </button>
+        </div>
+      </div>
+
+      {view === "map" ? (
+        <>
+          <FactoryMap onOpen={setOpen} onOpenRack={setRackItems} onShop={onShop} />
+          <Orders />
+        </>
+      ) : (
+        HALL_ORDER.map((hall) => {
+          const h = HALLS[hall];
+          const items = hallItems(s, catalog, hall);
+          const unlocked = hallUnlocked(s, hall);
+          return (
+            <section key={hall} className="hall" aria-label={h.de}>
+              <div className="hall-head">
+                <h2>{h.de}</h2>
+                <span className="small muted">{h.blurb}</span>
               </div>
-            ) : items.length === 0 ? (
-              <div className="locked">
-                Noch keine Maschinen. Hol dir im Laden einen Bauplan.{" "}
-                <button type="button" className="btn small" onClick={onShop}>
-                  Zum Laden
-                </button>
-              </div>
-            ) : (
-              <div className="machines">
-                {items.map((it) => (
-                  <Machine key={it.id} it={it} card={s.cards[it.id]} s={s} onOpen={() => setOpen(it)} />
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
+              {!unlocked ? (
+                <div className="locked">
+                  Ab Level {h.unlockLevel} (du bist Level {lvl}). Schreib Sätze, um Erfahrung zu sammeln.
+                </div>
+              ) : items.length === 0 ? (
+                <div className="locked">
+                  Noch keine Maschinen. Hol dir im Laden einen Bauplan.{" "}
+                  <button type="button" className="btn small" onClick={onShop}>
+                    Zum Laden
+                  </button>
+                </div>
+              ) : (
+                <div className="machines">
+                  {items.map((it) => (
+                    <Machine key={it.id} it={it} card={s.cards[it.id]} s={s} onOpen={() => setOpen(it)} />
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })
+      )}
+      {rackItems ? (
+        <RackSheet
+          items={rackItems}
+          onClose={() => setRackItems(null)}
+          onOpen={(it) => {
+            setRackItems(null);
+            setOpen(it);
+          }}
+        />
+      ) : null}
       {open ? <ItemSheet it={open} onClose={() => setOpen(null)} onPractice={onPractice} /> : null}
     </>
   );

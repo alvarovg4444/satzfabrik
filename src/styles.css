@@ -575,6 +575,62 @@ textarea.input {
   color: color-mix(in srgb, var(--surface) 60%, transparent);
 }
 
+/* pixel map of the factory: integer-scaled canvas, grass behind any rounding gap */
+.factory-map {
+  --map-grass: #80cc60;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--map-grass);
+  line-height: 0;
+}
+.factory-map canvas {
+  display: block;
+  max-width: 100%;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.factory-map.clipped::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 64px;
+  background: linear-gradient(rgba(0, 0, 0, 0), var(--map-grass) 85%);
+  pointer-events: none;
+}
+.map-more {
+  align-self: center;
+}
+.map-tip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  max-width: 240px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 0.82rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .factory-map {
+    --map-grass: #2d553c;
+  }
+}
+:root[data-theme="dark"] .factory-map {
+  --map-grass: #2d553c;
+}
+
 .hall {
   display: flex;
   flex-direction: column;
