@@ -56,9 +56,8 @@ export function surfaceKeys(item: Item): string[] {
   for (const k of item.keys ?? []) add(k, 2);
   switch (item.kind) {
     case "noun": {
-      // Drop a trailing -e so "Kollege" also matches "Kollegen", keep at least 4 letters.
-      const l = fold(item.lemma);
-      add(l.length > 5 && l.endsWith("e") ? l.slice(0, -1) : l);
+      // Substring matching: "kollege" also finds "Kollegen". (Dropping the -e would turn "Nichte" into "nicht".)
+      add(item.lemma);
       add(item.plural);
       break;
     }

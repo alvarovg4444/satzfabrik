@@ -27,11 +27,15 @@ function germanStrings(it: Item): string[] {
 describe("curriculum", () => {
   it("has a substantial amount of content", () => {
     const by = (k: Item["kind"]) => BUILTIN_ITEMS.filter((i) => i.kind === k).length;
-    expect(GRAMMAR.length).toBe(60);
-    expect(by("noun")).toBeGreaterThanOrEqual(150);
-    expect(by("verb")).toBeGreaterThanOrEqual(90);
-    expect(by("expr")).toBeGreaterThanOrEqual(50);
+    expect(GRAMMAR.length).toBe(95);
+    expect(by("noun")).toBeGreaterThanOrEqual(2000);
+    expect(by("verb")).toBeGreaterThanOrEqual(750);
+    expect(by("expr")).toBeGreaterThanOrEqual(100);
     expect(SCENARIOS.length).toBe(90);
+    // the Goethe A1-B1 lists plus a B2 set: every level is well stocked
+    for (const lv of ["A1", "A2", "B1", "B2"] as const) expect(BUILTIN_ITEMS.filter((i) => i.level === lv).length, lv).toBeGreaterThanOrEqual(500);
+    expect(GRAMMAR.filter((g) => g.level === "A1").length).toBeGreaterThanOrEqual(10);
+    expect(GRAMMAR.filter((g) => g.level === "B2").length).toBeGreaterThanOrEqual(10);
   });
 
   it("uses unique, well-formed ids", () => {
