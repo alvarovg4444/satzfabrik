@@ -20,9 +20,10 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
   names the pattern ("twice no dative after *mit*") and puts up to three grammar topics in
   focus: the next shifts practise them extra until they sit.
 - **The whole Goethe A1–B1 vocabulary, and B2.** Every word of the official Goethe-Institut
-  word lists for A1, A2 and B1 (the lists behind the Anki "Goethe" decks), 95 grammar
-  structures from A1 basics to B2, and a B2 set of about 800 frequent words, 12 structures
-  and 43 phrases that opens once your level reaches B1+. 4,030 items in all.
+  word lists for A1, A2 and B1 (the lists behind the Anki "Goethe" decks), 114 grammar
+  structures from A1 basics to B2, 1,600 more of the most frequent German words, and a B2
+  set of about 1,570 words, 31 structures and 43 phrases that opens once your level reaches
+  B1+. 5,648 items in all.
 - **A level engine.** It estimates your CEFR level per area from your answers and the
   corrector's reading of your sentences, delivers new blueprints just above that level every
   day, brings A1 basics back now and then, and tells the corrector how far to push you.
@@ -103,11 +104,11 @@ npm run sim:long   # two years for a light, typical and heavy learner (about a m
 
 Code map:
 
-- `src/content/`: curriculum and its schema in `types.ts`: 95 grammar structures, 2,123
-  nouns, 790 verbs, 908 adjectives, adverbs and other words, 114 expressions and 90 everyday
-  situations (A1 590, A2 783, B1 1,810, B2 847 items). The hand-written core is in
+- `src/content/`: curriculum and its schema in `types.ts`: 114 grammar structures, 2,839
+  nouns, 1,304 verbs, 1,277 adjectives, adverbs and other words, 114 expressions and 90
+  everyday situations (A1 601, A2 985, B1 2,420, B2 1,642 items). The hand-written core is in
   `grammar-*.ts`, `nouns.ts`, `verbs.ts`, `words.ts` and `expressions.ts`; the Goethe-list
-  vocabulary in `vocab-a1.ts` … `vocab-b2.ts`.
+  vocabulary in `vocab-a1.ts` … `vocab-b2.ts`, more frequent words in `vocab-freq.ts`.
 - `src/engine/`: FSRS wrapper and stages (`srs.ts`), shift builder (`tasks.ts`), level engine
   and recommendations (`level.ts`), form drills (`drills.ts`), Anki import (`importer.ts`),
   text helpers.

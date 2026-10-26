@@ -1,5 +1,6 @@
 import { EXPRESSIONS } from "./expressions";
 import { EXPRESSIONS_B2, GRAMMAR_B2 } from "./grammar-b2";
+import { GRAMMAR_B2_MORE } from "./grammar-b2-more";
 import { GRAMMAR_A1, GRAMMAR_B1_EXTRA } from "./grammar-extra";
 import { GRAMMAR_FAELLE } from "./grammar-faelle";
 import { GRAMMAR_SATZBAU } from "./grammar-satzbau";
@@ -13,13 +14,14 @@ import { VOCAB_A1 } from "./vocab-a1";
 import { VOCAB_A2 } from "./vocab-a2";
 import { VOCAB_B1 } from "./vocab-b1";
 import { VOCAB_B2, VOCAB_BASICS } from "./vocab-b2";
+import { VOCAB_FREQ } from "./vocab-freq";
 import { WORDS } from "./words";
 
-export const GRAMMAR: GramItem[] = [...GRAMMAR_SATZBAU, ...GRAMMAR_VERBEN, ...GRAMMAR_FAELLE, ...GRAMMAR_A1, ...GRAMMAR_B1_EXTRA, ...GRAMMAR_B2];
+export const GRAMMAR: GramItem[] = [...GRAMMAR_SATZBAU, ...GRAMMAR_VERBEN, ...GRAMMAR_FAELLE, ...GRAMMAR_A1, ...GRAMMAR_B1_EXTRA, ...GRAMMAR_B2, ...GRAMMAR_B2_MORE];
 
 /**
  * The hand-written core (grammar, the first nouns, verbs, words and phrases), then the
- * vocabulary of the Goethe A1-B1 word lists and the B2 set.
+ * vocabulary of the Goethe A1-B1 word lists, the B2 set and more of the most frequent words.
  */
 export const BUILTIN_ITEMS: Item[] = [
   ...GRAMMAR,
@@ -33,6 +35,7 @@ export const BUILTIN_ITEMS: Item[] = [
   ...VOCAB_B1,
   ...VOCAB_BASICS,
   ...VOCAB_B2,
+  ...VOCAB_FREQ,
 ];
 
 const BUILTIN_IDS = new Set(BUILTIN_ITEMS.map((i) => i.id));

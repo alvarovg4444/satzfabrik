@@ -96,7 +96,7 @@ a topic right away.
 
 ## Where the content comes from
 
-The curriculum has two layers, 4,030 items in all (A1 590, A2 783, B1 1,810, B2 847):
+The curriculum has these layers, 5,648 items in all (A1 601, A2 985, B1 2,420, B2 1,642):
 
 - **A hand-written core** of 503 items: the grammar structures, everyday words and
   expressions an A2–B1 learner needs most, each with a usage note.
@@ -107,7 +107,7 @@ The curriculum has two layers, 4,030 items in all (A1 590, A2 783, B1 1,810, B2 
   the raw lists are not part of the repository. Austrian/Swiss-only variants, abbreviations
   and function words that a grammar machine already teaches are left out; homonyms (die Bank,
   bank and bench) are separate items.
-- **Grammar** grows to 95 structures: 11 A1 basics (articles, present endings, questions,
+- **Grammar** grows to 95 structures (114 with the B2 ones): 11 A1 basics (articles, present endings, questions,
   plural, *es gibt*, *gern*, the time, *man* …) for the refreshers, and the B1 gaps
   (*falls/sobald/solange*, participles as adjectives, nominalisation, reported speech,
   relative clauses with prepositions, *sodass*, *indem*, *als ob*, passive with modal verbs,
@@ -121,6 +121,17 @@ The curriculum has two layers, 4,030 items in all (A1 590, A2 783, B1 1,810, B2 
   estimate there reaches 3.6 ("B1+"); until then they are shown as locked in the shop. Everyday
   words that the Goethe lists happen to miss (das Abendessen, der Schreibtisch, monatlich …)
   keep their real level.
+- **More frequent words.** A second pass over the frequency list (the 15,000 most frequent
+  word forms in film subtitles) added 1,599 words the sets above still missed, each with an
+  honest level (A1 11, A2 202, B1 610, B2 776): from *sprechen* and *meinen* to
+  *Kündigungsfrist*-type words of offices and work. Names, film-only words, slang and forms of
+  known words are left out. With them came 19 more B2 structures, so the B2 grammar is
+  complete: Zustandspassiv, subjectless passive, double infinitive, *zu* + participle
+  (*die zu erledigenden Aufgaben*), participle clauses, past infinitive, unreal wishes,
+  conditionals without *wenn*, *werden* for guesses, *es sei denn*, adversative *während*,
+  *selbst wenn*, *zu …, als dass*, correlates (*darauf, dass*), adjectives with prepositions,
+  B2 dative prepositions (*zufolge, gemäß, entgegen*), *wer …, der*, *einander* and adjective
+  word formation (*-bar, -los, -haft*).
 
 Every item is checked automatically (`tests/content.test.ts`): ids, required fields,
 article and plural, complete verb forms, separable prefixes, and that each example sentence
@@ -128,7 +139,7 @@ really contains its word, so the "missing word" check works on real answers.
 
 ### Situations and sentences
 
-Built in are two situations written for each of the 4,030 words and structures
+Built in are two situations written for each of the 5,648 words and structures
 (`src/content/item-situations.json`: simple German with English, about the learner's life
 in Austria, without the target word in the text), 90 general situations by topic for
 imported words, three translation sentences and two rewrites per grammar structure, and one
