@@ -10,8 +10,8 @@ import type { UpgradeId } from "./upgrades";
 
 export interface Settings {
   explainLang: ExplainLang;
-  /** Show the English line under German situations. */
-  showEnglish: boolean;
+  /** Always show the English line under German situations (otherwise: tap to see it). */
+  alwaysEnglish: boolean;
   /** Careful corrector: slower, more thorough model tier. */
   careful: boolean;
   /** Production tasks per day that count as a streak day. */
@@ -27,6 +27,8 @@ export interface Settings {
   /** Read corrected sentences aloud automatically. */
   autoSpeak: boolean;
   speechRate: number;
+  /** voiceURI of the German voice to read with; "" picks the most natural one installed. */
+  voice: string;
   /** Let the AI write fresh situations for each shift. */
   freshTasks: boolean;
   ai: AISettings;
@@ -100,7 +102,7 @@ export interface GameState {
 
 export const DEFAULT_SETTINGS: Settings = {
   explainLang: "en",
-  showEnglish: true,
+  alwaysEnglish: false,
   careful: false,
   dailyGoal: 20,
   newPerDay: 10,
@@ -110,6 +112,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   autoSpeak: false,
   speechRate: 0.95,
+  voice: "",
   freshTasks: true,
   ai: {
     preferred: "auto",

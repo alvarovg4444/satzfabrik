@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { gradeAnswer } from "../ai/corrector";
 import { EXPLAIN_LANGS, type ExplainLang } from "../ai/prompts";
 import { AIError, ANTHROPIC_MODELS, type AISettings, type ProviderId } from "../ai/providers";
@@ -9,7 +9,7 @@ import { migrate, newGame, type Settings } from "../game/state";
 import { clearLocal, MAX_CUSTOM } from "../store/persist";
 import { store, useCatalog, useGame, useMeta } from "../store/store";
 import { toast } from "./common";
-import { setSound } from "./fx";
+import { canSpeak, germanVoices, onVoicesChanged, setSound, speak, voiceScore } from "./fx";
 
 function patchSettings(p: Partial<Settings>) {
   store.update((d) => {
@@ -170,6 +170,61 @@ function AISection() {
   );
 }
 
+/** Pick the German voice; natural ones first. Better voices are free downloads on most devices. */
+function VoicePicker() {
+  const s = useGame();
+  const [voices, setVoices] = useState(germanVoices);
+  useEffect(() => {
+    setVoices(germanVoices());
+    return onVoicesChanged(() => setVoices(germanVoices()));
+  }, []);
+  if (!canSpeak()) return <p className="small muted">Dieses Gerät kann nicht vorlesen.</p>;
+  const auto = voices[0];
+  const natural = voices.some((v) => voiceScore(v) >= 9);
+  const sample = () => speak("Hallo! Hast du heute Abend Zeit? Wir könnten zusammen kochen.", s.settings.speechRate, s.settings.voice);
+  return (
+    <div className="field">
+      <label htmlFor="voice">Stimme</label>
+      <div className="row">
+        <select id="voice" className="input" style={{ flex: "1 1 200px" }} value={s.settings.voice} onChange={(e) => patchSettings({ voice: e.target.value })}>
+          <option value="">Automatisch{auto ? ` (${auto.name})` : ""}</option>
+          {voices.map((v) => (
+            <option key={v.voiceURI} value={v.voiceURI}>
+              {v.name}
+              {voiceScore(v) >= 9 ? " · natürlich" : ""}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="btn small" onClick={sample}>
+          Probe hören
+        </button>
+      </div>
+      {!natural ? (
+        <details className="small muted">
+          <summary>Klingt roboterhaft? Natürlichere Stimmen sind kostenlos</summary>
+          <ul className="tips">
+            <li>
+              <b>iPhone/iPad:</b> Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch → eine Stimme mit
+              „Erweitert“ oder „Premium“ laden.
+            </li>
+            <li>
+              <b>Android:</b> Einstellungen → Sprachausgabe (Text-in-Sprache) → Google-Sprachausgabe → Deutsch installieren und eine
+              Stimme wählen.
+            </li>
+            <li>
+              <b>Mac:</b> Systemeinstellungen → Bedienungshilfen → Gesprochene Inhalte → Systemstimme → Stimmen verwalten → Deutsch.
+            </li>
+            <li>
+              <b>Windows:</b> im Edge-Browser sind die natürlichen Microsoft-Stimmen (z. B. „Katja Online (Natural)“) schon da.
+            </li>
+          </ul>
+          Danach die App neu laden: Die App nimmt automatisch die natürlichste Stimme, die sie findet.
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 function LearnSection() {
   const s = useGame();
   return (
@@ -216,13 +271,14 @@ function LearnSection() {
         <input id="refresh" type="checkbox" checked={s.settings.refresh} onChange={(e) => patchSettings({ refresh: e.target.checked })} />
       </label>
       <label className="toggle" htmlFor="english">
-        <span>Englische Übersetzung der Situationen zeigen</span>
-        <input id="english" type="checkbox" checked={s.settings.showEnglish} onChange={(e) => patchSettings({ showEnglish: e.target.checked })} />
+        <span>Englische Übersetzung immer zeigen (sonst: Situation antippen)</span>
+        <input id="english" type="checkbox" checked={s.settings.alwaysEnglish} onChange={(e) => patchSettings({ alwaysEnglish: e.target.checked })} />
       </label>
       <label className="toggle" htmlFor="speak">
         <span>Korrigierte Sätze automatisch vorlesen</span>
         <input id="speak" type="checkbox" checked={s.settings.autoSpeak} onChange={(e) => patchSettings({ autoSpeak: e.target.checked })} />
       </label>
+      <VoicePicker />
       <div className="field">
         <label htmlFor="rate">Vorlesetempo: {s.settings.speechRate.toFixed(2)}</label>
         <input id="rate" type="range" min={0.6} max={1.2} step={0.05} value={s.settings.speechRate} onChange={(e) => patchSettings({ speechRate: Number(e.target.value) })} />

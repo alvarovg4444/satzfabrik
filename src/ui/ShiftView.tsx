@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { checkRework, diagnoseShift, freshenTasks, gradeAnswer, selfGrade, type SelfRating } from "../ai/corrector";
 import { AIError } from "../ai/providers";
 import type { GradeResult, TargetStatus } from "../ai/schema";
@@ -14,7 +14,7 @@ import { orderText } from "../game/orders";
 import type { GameState } from "../game/state";
 import { store, useCatalog, useGame, useMeta } from "../store/store";
 import { floatCoins, Icon, SpeakButton, toast } from "./common";
-import { canDictate, confetti, dictate, sfx, speak } from "./fx";
+import { canDictate, confetti, dictate, DICTATION_ERRORS, hasKeyboardDictation, sfx, speak } from "./fx";
 import { ItemDetails } from "./ItemSheet";
 
 interface Summary {
@@ -169,22 +169,97 @@ function TaskHeader({ task, index, total, onEnd }: { task: Task; index: number; 
   );
 }
 
-function Prompt({ task, showEnglish }: { task: Task; showEnglish: boolean }) {
+/**
+ * The task in German. The English translation stays hidden until the learner taps the
+ * situation (or the EN button), so they read German and can borrow its words.
+ */
+function Prompt({ task, alwaysEnglish }: { task: Task; alwaysEnglish: boolean }) {
+  const [english, setEnglish] = useState(alwaysEnglish);
+  useEffect(() => setEnglish(alwaysEnglish), [task.key, alwaysEnglish]);
+  const hasEnglish = !!(task.instructionEn || task.scenario?.en);
   return (
-    <div className="stack" style={{ gap: 10 }}>
+    <div className="stack prompt-top" style={{ gap: 10 }}>
       <p style={{ fontWeight: 700 }}>
         {task.instruction}
-        {showEnglish ? <span className="en"> · {task.instructionEn}</span> : null}
+        {english && task.instructionEn ? <span className="en"> · {task.instructionEn}</span> : null}
+        {hasEnglish && !task.scenario ? (
+          <button type="button" className="en-toggle" aria-pressed={english} onClick={() => setEnglish(!english)}>
+            EN
+          </button>
+        ) : null}
       </p>
       {task.scenario ? (
-        <div className="scenario">
-          <span className="de">{task.scenario.de}</span>
-          {showEnglish && task.scenario.en ? <span className="en">{task.scenario.en}</span> : null}
-        </div>
+        <button
+          type="button"
+          className="scenario"
+          aria-expanded={english}
+          onClick={() => setEnglish(!english)}
+          title={english ? "Antippen: Englisch ausblenden" : "Antippen: auf Englisch zeigen"}
+        >
+          <span className="de" lang="de">
+            {task.scenario.de}
+          </span>
+          {english && task.scenario.en ? (
+            <span className="en" lang="en">
+              {task.scenario.en}
+            </span>
+          ) : task.scenario.en ? (
+            <span className="hint">Nicht verstanden? Antippen für Englisch</span>
+          ) : null}
+        </button>
       ) : null}
       {task.source ? <div className="source">{task.source}</div> : null}
     </div>
   );
+}
+
+/** While the learner types: the page makes room, and the situation stays in view above the answer. */
+function useWritingMode(box: RefObject<HTMLTextAreaElement | null>) {
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    let timer = 0;
+    const keepInView = () => {
+      const prompt = el.closest(".task-card")?.querySelector<HTMLElement>(".prompt-top");
+      if (!prompt) return;
+      const vv = window.visualViewport;
+      const top = vv?.offsetTop ?? 0;
+      const height = vv?.height ?? window.innerHeight;
+      const p = prompt.getBoundingClientRect();
+      const b = el.getBoundingClientRect();
+      // Situation at the top of what is visible, unless that pushes the answer box under the keyboard.
+      let delta = p.top - top - 8;
+      const overflow = b.bottom - delta - (top + height - 8);
+      if (overflow > 0) delta += overflow;
+      if (Math.abs(delta) > 4) window.scrollBy({ top: delta });
+    };
+    const onFocus = () => {
+      // Only phones and tablets: there the keyboard takes half the screen.
+      if (!hasKeyboardDictation()) return;
+      window.clearTimeout(timer);
+      document.documentElement.classList.add("writing");
+      timer = window.setTimeout(keepInView, 350);
+    };
+    // Late, so a tap on "Prüfen" lands before the layout changes back.
+    const onBlur = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => document.documentElement.classList.remove("writing"), 300);
+    };
+    const onResize = () => {
+      if (document.activeElement === el) keepInView();
+    };
+    el.addEventListener("focus", onFocus);
+    el.addEventListener("blur", onBlur);
+    window.visualViewport?.addEventListener("resize", onResize);
+    if (document.activeElement === el) onFocus();
+    return () => {
+      window.clearTimeout(timer);
+      el.removeEventListener("focus", onFocus);
+      el.removeEventListener("blur", onBlur);
+      window.visualViewport?.removeEventListener("resize", onResize);
+      document.documentElement.classList.remove("writing");
+    };
+  }, [box]);
 }
 
 function Answer({
@@ -201,8 +276,12 @@ function Answer({
   autoFocus?: boolean;
 }) {
   const [listening, setListening] = useState(false);
+  const [micOk, setMicOk] = useState(canDictate);
   const stopRef = useRef<(() => void) | null>(null);
   const baseRef = useRef("");
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+  useWritingMode(boxRef);
+  useEffect(() => () => stopRef.current?.(), []);
   const words = wordCount(value);
   const mic = () => {
     if (listening) {
@@ -215,13 +294,17 @@ function Answer({
       (text) => onChange(baseRef.current + text),
       (err) => {
         setListening(false);
-        if (err && err !== "no-speech" && err !== "aborted") toast("Diktieren geht hier leider nicht. Bitte tippen.");
+        if (!err || err === "no-speech" || err === "aborted") return;
+        const keyboard = hasKeyboardDictation() ? " Tipp: Tippe auf das Mikrofon deiner Tastatur und sprich Deutsch." : "";
+        toast(`${DICTATION_ERRORS[err] ?? "Diktieren hat nicht geklappt."}${keyboard}`, 6000);
+        if (err === "not-allowed" || err === "service-not-allowed" || err === "language-not-supported") setMicOk(false);
       },
     );
   };
   return (
     <div className="stack" style={{ gap: 6 }}>
       <textarea
+        ref={boxRef}
         id="answer"
         className="input"
         lang="de"
@@ -243,10 +326,14 @@ function Answer({
         <span className="wordcount">
           {words} Wörter{minWords ? ` · Ziel ${minWords}+` : ""}
         </span>
-        {canDictate() ? (
-          <button type="button" className={`btn small ${listening ? "primary" : "ghost"}`} onClick={mic}>
-            <Icon name="mic" size={16} /> {listening ? "Stopp" : "Sprechen"}
+        {micOk ? (
+          <button type="button" className={`btn small ${listening ? "primary" : "ghost"}`} onClick={mic} aria-pressed={listening}>
+            <Icon name="mic" size={16} /> {listening ? "Fertig" : "Sprechen"}
           </button>
+        ) : hasKeyboardDictation() ? (
+          <span className="small muted mic-hint">
+            <Icon name="mic" size={14} /> Diktieren: Mikrofon auf der Tastatur
+          </span>
         ) : null}
       </div>
     </div>
@@ -267,6 +354,69 @@ function Diff({ from, to }: { from: string; to: string }) {
         ),
       ).flatMap((n, i, arr) => (i < arr.length - 1 && (tokens[i].op !== "same") ? [n, " "] : [n]))}
     </p>
+  );
+}
+
+/** How each target was used, in Claude's words. */
+function TargetNotes({ grade, items }: { grade: GradeResult; items: Map<string, Item> }) {
+  const notes = grade.targets.filter((t) => t.comment);
+  if (!notes.length) return null;
+  return (
+    <ul className="errs">
+      {notes.map((t) => (
+        <li key={t.id}>
+          <span className="errtype">{items.get(t.id) ? shortName(items.get(t.id)!) : t.id}</span>
+          <span>{t.comment}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Each mistake: what was written, the fix, and why. */
+function ErrorList({ errors }: { errors: GradeResult["errors"] }) {
+  if (!errors.length) return null;
+  return (
+    <ul className="errs" aria-label="Fehler">
+      {errors.map((e, i) => (
+        <li key={i}>
+          <span className="errtype">{ERROR_TYPES[e.type]?.de ?? e.type}</span>
+          <span className="fix">
+            <s>{e.wrong || "—"}</s> → <b>{e.right || "—"}</b>
+          </span>
+          {e.explain ? <span className="small muted">{e.explain}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Claude's second check of a repaired sentence: the same explanations as the first time. */
+function ReworkCheck({ check, items, ok }: { check: { grade: GradeResult; attempt: string }; items: Map<string, Item>; ok: boolean }) {
+  const { grade, attempt } = check;
+  const changed = grade.corrected && grade.corrected.trim() !== attempt;
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      {grade.praise && ok ? <p className="small">{grade.praise}</p> : null}
+      {changed ? (
+        <div className="card plain stack" style={{ gap: 6 }}>
+          <span className="eyebrow">Deine Reparatur, korrigiert</span>
+          <Diff from={attempt} to={grade.corrected} />
+          <div className="sentence">
+            <p style={{ fontWeight: 700 }}>{grade.corrected}</p>
+            <SpeakButton text={grade.corrected} />
+          </div>
+        </div>
+      ) : null}
+      <TargetNotes grade={grade} items={items} />
+      <ErrorList errors={grade.errors} />
+      {grade.tip ? <p className="small muted">Tipp: {grade.tip}</p> : null}
+      {grade.better && ok ? (
+        <p className="small muted">
+          Noch natürlicher: <b>{grade.better}</b>
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -295,33 +445,45 @@ function Feedback({
   const [rework, setRework] = useState<string | null>(null);
   const [reworkState, setReworkState] = useState<"idle" | "checking" | "ok" | "nope">("idle");
   const [reworkNote, setReworkNote] = useState("");
+  /** Claude's second check of the repaired sentence, with explanations. */
+  const [reworkGrade, setReworkGrade] = useState<{ grade: GradeResult; attempt: string } | null>(null);
   const verdictRef = useRef<HTMLDivElement>(null);
   const ctlRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (s.settings.autoSpeak) speak(grade.corrected || answer, s.settings.speechRate);
+    if (s.settings.autoSpeak) speak(grade.corrected || answer, s.settings.speechRate, s.settings.voice);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const tryRework = async () => {
-    if (!rework?.trim()) return;
+    const attempt = rework?.trim();
+    if (!attempt) return;
     setReworkState("checking");
+    setReworkNote("");
     ctlRef.current = new AbortController();
     try {
-      const res = await checkRework(meta.provider, task, grade, rework, catalog, { lang: s.settings.explainLang, signal: ctlRef.current.signal, level: levelCode(s) });
+      // Same check as the first time: Claude reads the whole sentence again and explains.
+      const res = await checkRework(meta.provider, task, grade, attempt, catalog, { lang: s.settings.explainLang, signal: ctlRef.current.signal, level: levelCode(s) });
       const ok = res === "match" || (res.targets.every((t) => t.status === "correct" || t.status === "flawed") && res.quality !== "major" && res.errors.length === 0);
+      setReworkGrade(res === "match" ? null : { grade: res, attempt });
       if (ok) {
-        const bonus = store.update((d) => applyRework(d, Date.now(), events.taler, rework.trim()));
+        const bonus = store.update((d) => applyRework(d, Date.now(), events.taler, attempt));
         floatCoins(bonus, verdictRef.current);
         sfx.good();
         setReworkState("ok");
-        setReworkNote(`Repariert! +${bonus} Taler Nacharbeitsbonus.`);
+        setReworkNote(
+          res === "match" ? `Genau wie die Korrektur: repariert! +${bonus} Taler Nacharbeitsbonus.` : `Repariert! +${bonus} Taler Nacharbeitsbonus.`,
+        );
       } else {
         sfx.bad();
         setReworkState("nope");
-        setReworkNote(res.errors.map((e) => `${e.wrong} → ${e.right}`).join(" · ") || "Noch nicht ganz.");
+        setReworkNote("Noch nicht ganz. Das hat die zweite Prüfung gefunden:");
       }
     } catch (e) {
+      if (e instanceof AIError && e.code === "cancelled") {
+        setReworkState("idle");
+        return;
+      }
       setReworkState("nope");
       setReworkNote(e instanceof AIError ? e.message : "Prüfen fehlgeschlagen.");
     }
@@ -374,32 +536,8 @@ function Feedback({
       ) : null}
 
       <Cues task={task} items={items} grade={grade} />
-      {grade.targets.some((t) => t.comment) ? (
-        <ul className="errs">
-          {grade.targets
-            .filter((t) => t.comment)
-            .map((t) => (
-              <li key={t.id}>
-                <span className="errtype">{items.get(t.id) ? shortName(items.get(t.id)!) : t.id}</span>
-                <span>{t.comment}</span>
-              </li>
-            ))}
-        </ul>
-      ) : null}
-
-      {grade.errors.length ? (
-        <ul className="errs" aria-label="Fehler">
-          {grade.errors.map((e, i) => (
-            <li key={i}>
-              <span className="errtype">{ERROR_TYPES[e.type]?.de ?? e.type}</span>
-              <span className="fix">
-                <s>{e.wrong || "—"}</s> → <b>{e.right || "—"}</b>
-              </span>
-              {e.explain ? <span className="small muted">{e.explain}</span> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <TargetNotes grade={grade} items={items} />
+      <ErrorList errors={grade.errors} />
       {grade.tip ? <p className="small muted">Tipp: {grade.tip}</p> : null}
       {task.reference && grade.source !== "exact" && !events.success && !gaveUp ? (
         <p className="small muted">Musterlösung: {task.reference}</p>
@@ -408,14 +546,26 @@ function Feedback({
       {rework !== null ? (
         <div className="card stack">
           <span className="eyebrow">Nacharbeit: repariere deinen Satz selbst</span>
-          <Answer value={rework} onChange={setRework} onSubmit={tryRework} autoFocus />
-          {reworkNote ? <p className="small" style={{ color: reworkState === "ok" ? "var(--ok)" : "var(--brick)" }}>{reworkNote}</p> : null}
-          {reworkState !== "ok" ? (
+          {reworkState !== "ok" ? <Answer value={rework} onChange={setRework} onSubmit={tryRework} autoFocus /> : null}
+          {reworkState === "checking" ? (
+            <div className="qc" role="status">
+              <Icon name="spark" />
+              <span>Zweite Prüfung …</span>
+              <span className="conveyor" />
+            </div>
+          ) : null}
+          {reworkNote ? (
+            <p className="small" style={{ color: reworkState === "ok" ? "var(--ok)" : "var(--brick)", fontWeight: 700 }}>
+              {reworkNote}
+            </p>
+          ) : null}
+          {reworkGrade && reworkState !== "checking" ? <ReworkCheck check={reworkGrade} items={items} ok={reworkState === "ok"} /> : null}
+          {reworkState !== "ok" && reworkState !== "checking" ? (
             <div className="row">
-              <button type="button" className="btn steel" disabled={reworkState === "checking"} onClick={tryRework}>
-                {reworkState === "checking" ? "Prüfe …" : "Reparatur prüfen"}
+              <button type="button" className="btn steel" onClick={tryRework}>
+                {reworkGrade ? "Nochmal prüfen" : "Reparatur prüfen"}
               </button>
-              <button type="button" className="btn ghost" onClick={() => setRework(grade.corrected)}>
+              <button type="button" className="btn ghost" onClick={() => setRework(reworkGrade?.grade.corrected || grade.corrected)}>
                 Korrektur einsetzen
               </button>
             </div>
@@ -967,8 +1117,8 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
   return (
     <section className="stack">
       <TaskHeader task={task} index={index} total={tasks.length} onEnd={end} />
-      <div className="card stack">
-        <Prompt task={task} showEnglish={s.settings.showEnglish} />
+      <div className="card stack task-card">
+        <Prompt task={task} alwaysEnglish={s.settings.alwaysEnglish} />
         {phase.k !== "feedback" ? <Cues task={task} items={items} /> : null}
 
         {phase.k === "task" || phase.k === "grading" ? (

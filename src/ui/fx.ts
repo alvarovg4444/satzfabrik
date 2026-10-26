@@ -62,35 +62,65 @@ export const sfx = {
 
 // --- speech ---------------------------------------------------------------
 
-let voice: SpeechSynthesisVoice | null = null;
+/**
+ * How natural a system voice sounds, from its name: premium and enhanced Apple voices,
+ * Microsoft's "Natural"/"Online" voices (Edge) and Google's voices are neural or
+ * high-quality recordings; "compact" and eSpeak voices are the robotic ones.
+ */
+export function voiceScore(v: SpeechSynthesisVoice): number {
+  if (!/^de/i.test(v.lang)) return -100;
+  const n = `${v.name} ${v.voiceURI}`.toLowerCase();
+  let s = v.lang.replace("_", "-") === "de-DE" ? 2 : 0;
+  if (/premium/.test(n)) s += 12;
+  if (/natural|neural/.test(n)) s += 11;
+  if (/enhanced|erweitert/.test(n)) s += 9;
+  if (/online/.test(n)) s += 4;
+  if (/google/.test(n)) s += 7;
+  if (/compact|espeak|eloquence/.test(n)) s -= 6;
+  // Apple's novelty voices
+  if (/grandma|grandpa|oma|opa|rocko|shelley|flo|reed|sandy|eddy|bad news|bells|bubbles|cellos|jester|organ|trinoids|whisper|wobble|zarvox|superstar|bahh|boing|albert|fred|junior|kathy|ralph/.test(n)) s -= 20;
+  return s;
+}
 
-function germanVoice(): SpeechSynthesisVoice | null {
-  if (voice) return voice;
+export function germanVoices(): SpeechSynthesisVoice[] {
+  if (!canSpeak()) return [];
   try {
-    const voices = speechSynthesis.getVoices();
-    voice =
-      voices.find((v) => v.lang === "de-DE" && /google|natural|premium|enhanced/i.test(v.name)) ??
-      voices.find((v) => v.lang === "de-DE") ??
-      voices.find((v) => v.lang.startsWith("de")) ??
-      null;
-    return voice;
+    return speechSynthesis
+      .getVoices()
+      .filter((v) => voiceScore(v) > -50)
+      .sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name));
   } catch {
-    return null;
+    return [];
   }
+}
+
+/** Calls back when the browser has (re)loaded its voice list; returns an unsubscribe function. */
+export function onVoicesChanged(cb: () => void): () => void {
+  if (!canSpeak()) return () => undefined;
+  speechSynthesis.addEventListener?.("voiceschanged", cb);
+  return () => speechSynthesis.removeEventListener?.("voiceschanged", cb);
+}
+
+function pickVoice(uri: string): SpeechSynthesisVoice | null {
+  const voices = germanVoices();
+  return (uri && voices.find((v) => v.voiceURI === uri)) || voices[0] || null;
 }
 
 export function canSpeak(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-export function speak(text: string, rate = 0.95) {
+export function speak(text: string, rate = 0.95, voiceURI = "") {
   if (!canSpeak() || !text) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "de-DE";
-    const v = germanVoice();
-    if (v) u.voice = v;
+    const v = pickVoice(voiceURI);
+    if (v) {
+      u.voice = v;
+      u.lang = v.lang;
+    }
     u.rate = rate;
     speechSynthesis.speak(u);
   } catch {
@@ -116,11 +146,45 @@ function recognitionCtor(): (new () => Recognition) | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+const DICTATION_KEY = "satzfabrik.dictation";
+
+/**
+ * Can this page listen? Not when the browser lacks speech recognition, when the page
+ * runs in a frame without microphone access (as published artifacts do), or after
+ * an earlier attempt was refused.
+ */
 export function canDictate(): boolean {
-  return typeof window !== "undefined" && !!recognitionCtor();
+  if (typeof window === "undefined" || !recognitionCtor()) return false;
+  try {
+    if (localStorage.getItem(DICTATION_KEY) === "blocked") return false;
+  } catch {
+    /* private mode */
+  }
+  const policy = (document as unknown as { featurePolicy?: { allowsFeature(f: string): boolean } }).featurePolicy;
+  if (policy && !policy.allowsFeature("microphone")) return false;
+  return true;
 }
 
-/** Start German dictation. Calls onText with the running transcript; returns a stop function. */
+/** Phones and tablets have a microphone key on the keyboard, which works in every text field. */
+export function hasKeyboardDictation(): boolean {
+  return typeof window !== "undefined" && (window.matchMedia?.("(pointer: coarse)").matches ?? false);
+}
+
+export const DICTATION_ERRORS: Record<string, string> = {
+  "not-allowed": "Diese Seite darf das Mikrofon nicht benutzen.",
+  "service-not-allowed": "Diese Seite darf das Mikrofon nicht benutzen.",
+  "audio-capture": "Kein Mikrofon gefunden.",
+  network: "Die Spracherkennung braucht eine Internetverbindung.",
+  "language-not-supported": "Deutsch wird hier nicht erkannt.",
+  unsupported: "Dieser Browser kann nicht diktieren.",
+  failed: "Diktieren hat nicht geklappt.",
+};
+
+/**
+ * German dictation. Keeps listening through pauses, so a whole phrase or several
+ * sentences fit, until stop() is called or the browser ends the session. Calls onText
+ * with the running transcript; returns a stop function.
+ */
 export function dictate(onText: (text: string, final: boolean) => void, onEnd: (error?: string) => void): () => void {
   const Ctor = recognitionCtor();
   if (!Ctor) {
@@ -130,18 +194,32 @@ export function dictate(onText: (text: string, final: boolean) => void, onEnd: (
   const rec = new Ctor();
   rec.lang = "de-DE";
   rec.interimResults = true;
-  rec.continuous = false;
+  rec.continuous = true;
+  let failed = false;
   rec.onresult = (e) => {
     let text = "";
-    let final = false;
+    let final = true;
     for (let i = 0; i < e.results.length; i++) {
-      text += e.results[i][0].transcript;
-      final = e.results[i].isFinal;
+      const piece = e.results[i][0].transcript.trim();
+      if (piece) text += (text ? " " : "") + piece;
+      if (!e.results[i].isFinal) final = false;
     }
     onText(text, final);
   };
-  rec.onerror = (e) => onEnd(e.error);
-  rec.onend = () => onEnd();
+  rec.onerror = (e) => {
+    failed = true;
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      try {
+        localStorage.setItem(DICTATION_KEY, "blocked");
+      } catch {
+        /* private mode */
+      }
+    }
+    onEnd(e.error);
+  };
+  rec.onend = () => {
+    if (!failed) onEnd();
+  };
   try {
     rec.start();
   } catch {

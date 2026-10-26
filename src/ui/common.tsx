@@ -99,7 +99,7 @@ export function SpeakButton({ text, small }: { text: string; small?: boolean }) 
       className={`iconbtn ${small ? "" : ""}`}
       aria-label="Vorlesen"
       title="Vorlesen"
-      onClick={() => speak(text, store.get().settings.speechRate)}
+      onClick={() => speak(text, store.get().settings.speechRate, store.get().settings.voice)}
     >
       <Icon name="speaker" size={small ? 18 : 22} />
     </button>
