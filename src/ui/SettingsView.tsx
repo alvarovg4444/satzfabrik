@@ -256,7 +256,7 @@ function DataSection() {
     });
     const cut = res.items.length - items.length;
     setNote(
-      `${items.length} Wörter importiert. Sie stehen jetzt im Laden unter „Importiert“. ${res.duplicates} gab es schon.` +
+      `${items.length} Wörter importiert. Sie stehen jetzt im Lernplan unter „Importiert“ und kommen mit der Lieferung dran. ${res.duplicates} gab es schon.` +
         (cut ? ` ${cut} passten nicht mehr (maximal ${MAX_CUSTOM} importierte Wörter).` : ""),
     );
     setImportBox("");

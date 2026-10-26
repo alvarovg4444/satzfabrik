@@ -164,7 +164,7 @@ function Overview({ onPractice }: { onPractice: (id: string) => void }) {
                   </button>
                 ) : (
                   <span key={w.id} className="chip">
-                    {shortName(w)} (im Laden)
+                    {shortName(w)} (im Lernplan)
                   </span>
                 ),
               )}

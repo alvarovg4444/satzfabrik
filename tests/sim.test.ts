@@ -5,10 +5,10 @@ import { isDue, stageOf } from "../src/engine/srs";
 import { buildShift } from "../src/engine/tasks";
 import { dayKey, rng } from "../src/engine/text";
 import { applyGrade, buyUpgrade, finishShift, rollover, tick, unlock, weakRules } from "../src/game/actions";
-import { factoryRate, levelOf, unlockCost } from "../src/game/economy";
+import { factoryRate, levelOf, perSentence } from "../src/game/economy";
 import { starterItems } from "../src/game/starter";
 import { newGame } from "../src/game/state";
-import { UPGRADES, upgradeCost } from "../src/game/upgrades";
+import { BUILDINGS, UPGRADES, upgradeCost } from "../src/game/upgrades";
 
 /**
  * Economy sanity check: a learner plays ~30 minutes a day for 60 days.
@@ -21,7 +21,7 @@ describe("60-day economy simulation", () => {
     const DAY = 86_400_000;
     let now = new Date("2026-11-01T08:00:00").getTime();
     const s = newGame(now);
-    for (const it of starterItems(catalog, ["arbeit", "wohnen", "alltag"])) unlock(s, it, now, { free: true });
+    for (const it of starterItems(catalog, ["arbeit", "wohnen", "alltag"])) unlock(s, it, now);
     s.onboarded = true;
     const log: string[] = [];
     let maxDue = 0;
@@ -64,19 +64,24 @@ describe("60-day economy simulation", () => {
         }
         finishShift(s, catalog, now);
       }
-      // New blueprints arrive with the daily delivery (partly bought with Taler); then the cheapest upgrade.
+      // New blueprints arrive with the daily delivery (free). Taler go into the factory:
+      // buy the cheapest affordable upgrade again and again, like a player would.
       const bought = s.delivery?.day === dayKey(now) ? s.delivery.ids.length : 0;
       newPerDay += s.stats.days[dayKey(now)]?.built ?? 0;
-      const up = UPGRADES.map((u) => ({ u, cost: upgradeCost(u, s.upgrades[u.id] ?? 0) }))
-        .filter(({ u }) => (s.upgrades[u.id] ?? 0) < u.max)
-        .sort((a, b) => a.cost - b.cost)[0];
-      if (up && s.taler > up.cost * 2) buyUpgrade(s, up.u.id);
+      for (let k = 0; k < 40; k++) {
+        const up = UPGRADES.map((u) => ({ u, cost: upgradeCost(u, s.upgrades[u.id] ?? 0) }))
+          .filter(({ u }) => (s.upgrades[u.id] ?? 0) < u.max)
+          .sort((a, b) => a.cost - b.cost)[0];
+        if (!up || s.taler < up.cost) break;
+        buyUpgrade(s, up.u.id);
+      }
       // The app is closed for 16 hours.
       now += 16 * 3_600_000;
       const owned = Object.keys(s.cards).length;
       const gold = Object.values(s.cards).filter((c) => stageOf(c) === 5).length;
+      const buildings = BUILDINGS.filter((b) => s.upgrades[b]).length;
       log.push(
-        `day ${String(day + 1).padStart(2)}  due ${String(dueAtStart).padStart(3)}  graded ${String(graded).padStart(2)}  bought ${bought}  owned ${String(owned).padStart(3)}  gold ${String(gold).padStart(3)}  lvl ${levelOf(s.xp)}  rate ${factoryRate(s, catalog, now).toFixed(0).padStart(5)}/h  taler ${s.taler.toFixed(0).padStart(7)}  next ${unlockCost(s, catalog.items[0])}  blueprints ${Object.values(s.cards).filter((c) => stageOf(c) === 0).length}`,
+        `day ${String(day + 1).padStart(2)}  due ${String(dueAtStart).padStart(3)}  graded ${String(graded).padStart(2)}  new ${String(bought).padStart(2)}  owned ${String(owned).padStart(4)}  gold ${String(gold).padStart(3)}  lvl ${String(levelOf(s.xp)).padStart(2)}  pro Satz ${perSentence(s).toFixed(1).padStart(6)}  rate ${factoryRate(s, catalog, now).toFixed(0).padStart(6)}/h  taler ${s.taler.toFixed(0).padStart(7)}  tools ${s.upgrades.werkzeug ?? 0}  workers ${s.upgrades.arbeiter ?? 0}  buildings ${buildings}`,
       );
     }
     if (process.env.SIM) console.log(log.join("\n"));
@@ -84,5 +89,11 @@ describe("60-day economy simulation", () => {
     expect(maxDue).toBeLessThan(60);
     expect(newPerDay / 60).toBeGreaterThan(1.5);
     expect(Object.keys(s.cards).length).toBeGreaterThan(80);
+    // Taler per sentence grows step by step, and the big buildings stay goals for later.
+    expect(perSentence(s)).toBeGreaterThan(5);
+    expect(perSentence(s)).toBeLessThan(1000);
+    const buildings = BUILDINGS.filter((b) => s.upgrades[b]).length;
+    expect(buildings).toBeGreaterThanOrEqual(2);
+    expect(buildings).toBeLessThan(BUILDINGS.length);
   });
 });

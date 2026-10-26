@@ -184,7 +184,7 @@ export function FactoryMap({
         break;
       }
       case "free":
-        toast(`Freier Platz in der ${HALLS[hit.hall!.id].de}. Neue Maschinen gibt es im Laden.`);
+        toast(`Freier Platz in der ${HALLS[hit.hall!.id].de}. Neue Maschinen bringt die tägliche Lieferung, oder du suchst sie im Lernplan aus.`);
         onShop();
         break;
       case "site":

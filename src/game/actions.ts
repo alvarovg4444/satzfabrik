@@ -1,23 +1,15 @@
 import type { GradeResult, TargetStatus } from "../ai/schema";
 import type { Catalog } from "../content/catalog";
 import { HALLS, type ErrorType, type HallId, type Item, type TopicId } from "../content/types";
-import { decayBasics, noteBasics, observe, observeAi, recommend, seedFromHistory } from "../engine/level";
+import { decayBasics, levelOpen, noteBasics, observe, observeAi, recommend, seedFromHistory } from "../engine/level";
 import { isDue, newCard, review, rustOf, stageOf } from "../engine/srs";
 import type { Task } from "../engine/tasks";
 import { dayKey, daysBetween, hash, wordCount } from "../engine/text";
 import { ACHIEVEMENTS, type Achievement } from "./achievements";
-import {
-  comboCap,
-  factoryRate,
-  idleEarnings,
-  levelOf,
-  shiftBonus,
-  taskReward,
-  unlockCost,
-} from "./economy";
+import { comboCap, factoryRate, idleEarnings, levelOf, perSentence, shiftBonus, taskReward } from "./economy";
 import { dailyOrders, openChest, type ChestPrize, type Order } from "./orders";
 import { emptyDay, type DayStat, type GameState } from "./state";
-import { UPGRADE_BY_ID, upgradeCost, type UpgradeId } from "./upgrades";
+import { has, UPGRADE_BY_ID, upgradeCost, type UpgradeId } from "./upgrades";
 
 /*
  * All state changes live here as mutations on a draft copy; the store clones
@@ -102,39 +94,25 @@ export function recommendFor(s: GameState, catalog: Catalog, now: number, count:
   );
 }
 
-/** Blueprints the daily delivery brings for free; the rest of the day's allowance is bought with Taler. */
-export const FREE_DELIVERY = 3;
-
 /**
  * The daily delivery: the level engine picks blueprints that fit the learner so the
- * queue always holds today's allowance of new machines. The first few each day are
- * free, so learning never stalls; the rest are bought at the normal price while the
- * Taler last. Idempotent: calling it again the same day only tops up.
+ * queue always holds today's allowance of new machines. Learning material is never
+ * bought: Taler are for the factory. Idempotent: calling it again the same day only tops up.
  */
 export function deliver(s: GameState, catalog: Catalog, now: number): Item[] {
   if (!s.settings.autoDeliver || !s.onboarded) return [];
   const need = newLeftToday(s, now) - queuedBlueprints(s);
   if (need <= 0) return [];
-  const day = dayKey(now);
-  const today = s.delivery?.day === day ? s.delivery : { day, ids: [], free: 0, paid: 0 };
-  const got: Item[] = [];
-  // Never spend more than half of the Taler, so there is always money left for upgrades.
-  let budget = s.taler / 2;
-  for (const it of recommendFor(s, catalog, now, need)) {
-    if (today.free >= FREE_DELIVERY) {
-      const cost = unlockCost(s, it);
-      if (cost > budget) break;
-      budget -= cost;
-      s.taler -= cost;
-      today.paid += cost;
-    } else {
-      today.free++;
-    }
-    s.cards[it.id] = newCard(it.id, now + got.length);
-    got.push(it);
+  const picks = recommendFor(s, catalog, now, need);
+  picks.forEach((it, i) => {
+    s.cards[it.id] = newCard(it.id, now + i);
+  });
+  if (picks.length) {
+    const day = dayKey(now);
+    const before = s.delivery?.day === day ? s.delivery.ids : [];
+    s.delivery = { day, ids: [...before, ...picks.map((it) => it.id)] };
   }
-  if (got.length) s.delivery = { ...today, ids: [...today.ids, ...got.map((it) => it.id)] };
-  return got;
+  return picks;
 }
 
 /** Once per calendar day: streak bookkeeping, fresh orders, cooling weak spots, the delivery. */
@@ -177,6 +155,7 @@ export function rollover(s: GameState, catalog: Catalog, now: number): void {
       list: dailyOrders({
         day,
         rate: factoryRate(s, catalog, now),
+        perSentence: perSentence(s),
         ownedHalls: ownedHalls(s, catalog),
         ownedTopics: ownedTopics(s, catalog),
         hasRepairs: Object.values(s.cards).some((c) => stageOf(c) > 0),
@@ -186,23 +165,19 @@ export function rollover(s: GameState, catalog: Catalog, now: number): void {
   deliver(s, catalog, now);
 }
 
-export type UnlockError = "owned" | "locked_hall" | "too_expensive";
+export type UnlockError = "owned" | "locked_hall" | "locked_level";
 
 export function canUnlock(s: GameState, it: Item): UnlockError | null {
   if (s.cards[it.id]) return "owned";
   if (!hallUnlocked(s, it.hall)) return "locked_hall";
-  if (s.freeBlueprints <= 0 && s.taler < unlockCost(s, it)) return "too_expensive";
+  if (!levelOpen(s.level, it)) return "locked_level";
   return null;
 }
 
-export function unlock(s: GameState, it: Item, now: number, opts: { free?: boolean } = {}): UnlockError | null {
-  if (s.cards[it.id]) return "owned";
-  if (!opts.free) {
-    const err = canUnlock(s, it);
-    if (err) return err;
-    if (s.freeBlueprints > 0) s.freeBlueprints--;
-    else s.taler -= unlockCost(s, it);
-  }
+/** Put an item on the learning plan. Free: words and grammar are never bought. */
+export function unlock(s: GameState, it: Item, now: number): UnlockError | null {
+  const err = canUnlock(s, it);
+  if (err) return err;
   s.cards[it.id] = newCard(it.id, now);
   return null;
 }
@@ -240,13 +215,19 @@ const SUCCESS: TargetStatus[] = ["correct", "flawed"];
 
 function addXp(s: GameState, n: number): number | null {
   const before = levelOf(s.xp);
-  s.xp += n;
+  s.xp += Math.round(n * (has(s.upgrades, "ausbildung") ? 1.2 : 1));
   const after = levelOf(s.xp);
   if (after > before) {
-    s.freeBlueprints += after - before;
+    // Every level-up brings a new worker to the factory.
+    hireFree(s, after - before);
     return after;
   }
   return null;
+}
+
+function hireFree(s: GameState, n: number): void {
+  const max = UPGRADE_BY_ID.get("arbeiter")!.max;
+  s.upgrades.arbeiter = Math.min(max, (s.upgrades.arbeiter ?? 0) + n);
 }
 
 function progressOrders(s: GameState, apply: (o: Order) => number, now: number): Order[] {
@@ -300,7 +281,6 @@ export function applyGrade(
   now: number,
   opts: { gaveUp?: boolean } = {},
 ): TaskEvents {
-  const rate = factoryRate(s, catalog, now);
   const day = today(s, now);
   const statuses = grade.targets.map((t) => t.status);
   const success = statuses.length > 0 && statuses.every((st) => SUCCESS.includes(st));
@@ -364,12 +344,12 @@ export function applyGrade(
 
   // Combo and reward
   const comboBefore = s.combo;
-  const taler = taskReward(s, rate, {
+  const taler = taskReward(s, {
     type: task.type,
     quality: grade.quality,
     statuses,
-    words: wordCount(answer),
     rust: grade.targets.length ? rustSum / grade.targets.length : 0,
+    built: built.length,
   });
   addTaler(s, now, taler);
   if (success) {
@@ -452,7 +432,7 @@ export function applyRework(s: GameState, now: number, previousReward: number, f
 }
 
 export function finishShift(s: GameState, catalog: Catalog, now: number): { bonus: number; orders: Order[]; achievements: Achievement[] } {
-  const bonus = shiftBonus(s, factoryRate(s, catalog, now));
+  const bonus = shiftBonus(s);
   addTaler(s, now, bonus);
   s.stats.shifts++;
   today(s, now).shifts++;
@@ -487,11 +467,11 @@ export function chestReady(s: GameState): boolean {
 
 export function claimChest(s: GameState, catalog: Catalog, now: number): ChestPrize | null {
   if (!chestReady(s)) return null;
-  const prize = openChest(hash(`chest:${s.orders.day}:${s.createdAt}`), factoryRate(s, catalog, now));
+  const prize = openChest(hash(`chest:${s.orders.day}:${s.createdAt}`), perSentence(s) * 30 + factoryRate(s, catalog, now) * 3);
   s.orders.chestClaimed = true;
   if (prize.kind === "taler") addTaler(s, now, prize.amount);
   if (prize.kind === "freeze") s.streak.freezes++;
-  if (prize.kind === "blueprint") s.freeBlueprints++;
+  if (prize.kind === "worker") hireFree(s, 1);
   s.updatedAt = now;
   return prize;
 }

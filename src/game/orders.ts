@@ -64,7 +64,9 @@ export function orderText(o: Order): { de: string; en: string } {
 
 export interface OrderContext {
   day: string;
+  /** Taler per hour, and Taler per sentence: rewards grow with the factory. */
   rate: number;
+  perSentence: number;
   ownedHalls: HallId[];
   ownedTopics: TopicId[];
   hasRepairs: boolean;
@@ -72,7 +74,8 @@ export interface OrderContext {
 
 export function dailyOrders(ctx: OrderContext): Order[] {
   const r = rng(hash(`orders:${ctx.day}`));
-  const reward = (mult: number) => Math.round(Math.max(60, ctx.rate * 0.75) * mult);
+  // About ten sentences' worth plus an hour of production.
+  const reward = (mult: number) => Math.max(10, Math.round((ctx.perSentence * 10 + ctx.rate) * mult));
   const pool: Omit<Order, "id" | "progress" | "done" | "from">[] = [
     { kind: "good_sentences", goal: pick([5, 8, 12], r), reward: reward(1) },
     { kind: "perfect_sentences", goal: pick([2, 3, 5], r), reward: reward(1.2) },
@@ -89,13 +92,14 @@ export function dailyOrders(ctx: OrderContext): Order[] {
 }
 
 /** Rewards for the daily chest: variable on purpose. */
-export type ChestPrize = { kind: "taler"; amount: number } | { kind: "freeze" } | { kind: "blueprint" };
+export type ChestPrize = { kind: "taler"; amount: number } | { kind: "freeze" } | { kind: "worker" };
 
-export function openChest(seed: number, rate: number): ChestPrize {
+/** `value` is what a good day earns, so the chest stays worth opening as the factory grows. */
+export function openChest(seed: number, value: number): ChestPrize {
   const r = rng(seed);
   const roll = r();
   if (roll < 0.15) return { kind: "freeze" };
-  if (roll < 0.35) return { kind: "blueprint" };
+  if (roll < 0.35) return { kind: "worker" };
   const mult = roll > 0.95 ? 6 : roll > 0.8 ? 3 : roll > 0.55 ? 2 : 1.2;
-  return { kind: "taler", amount: Math.round(Math.max(150, rate * 2) * mult) };
+  return { kind: "taler", amount: Math.max(20, Math.round(value * mult)) };
 }

@@ -42,8 +42,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <b>Bauen:</b> Eine Maschine läuft erst, wenn du einen eigenen, richtigen Satz damit schreibst.
               </li>
               <li>
-                <b>Produzieren:</b> Laufende Maschinen verdienen Taler, auch wenn die App zu ist. Jeden Tag kommen neue Baupläne passend
-                zu deinem Niveau, mit Talern holst du dir mehr und baust die Fabrik aus.
+                <b>Produzieren:</b> Jeder Satz bringt Taler, laufende Maschinen verdienen auch, wenn die App zu ist. Mit Talern baust du
+                die Fabrik aus: Werkzeug, Personal, Gebäude. Neue Baupläne kosten nichts, die Fabrik liefert sie jeden Tag passend zu
+                deinem Niveau.
               </li>
               <li>
                 <b>Warten:</b> Wenn du ein Wort bald vergessen würdest, rostet die Maschine. Benutze es in einem neuen Satz, dann läuft

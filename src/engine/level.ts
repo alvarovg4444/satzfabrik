@@ -48,6 +48,14 @@ export interface LevelState {
   seeded?: boolean;
 }
 
+/** B2 material opens per area once the estimate reaches "B1+". */
+export const B2_UNLOCK = 3.6;
+
+/** Is this item's level open to the learner yet? (Only B2 is ever closed.) */
+export function levelOpen(ls: LevelState, it: Item): boolean {
+  return it.level !== "B2" || ls.areas[areaOf(it)].theta >= B2_UNLOCK;
+}
+
 /** The app is made for A2–B1 learners, so the estimate starts in the middle and moves fast at first. */
 export const START_THETA = 2.5;
 
@@ -201,7 +209,7 @@ export function recommend(inp: RecommendInput, count: number): Item[] {
   const errTypes = new Set(inp.errorTypes);
   const scored: { it: Item; score: number }[] = [];
   for (const it of catalog.items) {
-    if (cards[it.id] || !inp.hallOpen(it.hall)) continue;
+    if (cards[it.id] || !inp.hallOpen(it.hall) || !levelOpen(level, it)) continue;
     const area = areaOf(it);
     const theta = level.areas[area].theta;
     const b = LEVEL_NUM[it.level];

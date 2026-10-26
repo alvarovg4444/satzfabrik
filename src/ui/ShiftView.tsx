@@ -86,7 +86,7 @@ function celebrate(events: TaskEvents, grade: GradeResult, anchor: HTMLElement |
   if (events.levelUp) {
     sfx.levelUp();
     confetti(["#f2b705", "#2c6a78", "#b0432b", "#2f8a52"]);
-    toast(<span>Level <b>{events.levelUp}</b>! Ein Gratis-Bauplan wartet im Laden.</span>, 6000);
+    toast(<span>Level <b>{events.levelUp}</b>! Ein neuer Arbeiter fängt in deiner Fabrik an.</span>, 6000);
   } else if (perfect) {
     confetti(["#f2b705", "#2c6a78"]);
   }
@@ -508,7 +508,7 @@ function StartScreen({ onStart }: { onStart: (extra: boolean) => void }) {
           </button>
         </>
       ) : (
-        <p className="small muted">Du hast noch keine Maschinen. Hol dir im Laden Baupläne.</p>
+        <p className="small muted">Du hast noch keine Maschinen. Die nächste Lieferung bringt neue Baupläne, oder such dir im Lernplan welche aus.</p>
       )}
       <p className="small muted">
         Korrektor: <b>{meta.providerReady ? meta.provider.label : "wird verbunden …"}</b>
@@ -617,7 +617,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
       if (list.length) toast(`Heute schon ${st.settings.newPerDay} neue Maschinen gebaut. Jetzt gibt es eine Übungsschicht.`, 4500);
     }
     if (!list.length) {
-      toast("Nichts zu tun. Hol dir neue Baupläne im Laden.");
+      toast("Nichts zu tun. Such dir im Lernplan neue Baupläne aus.");
       return;
     }
     setTasks(list);

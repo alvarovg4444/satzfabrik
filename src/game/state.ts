@@ -73,8 +73,6 @@ export interface GameState {
   custom: Item[];
   combo: number;
   bestCombo: number;
-  /** Blueprints that can be unlocked for free (from chests and level-ups). */
-  freeBlueprints: number;
   stats: {
     days: Record<string, DayStat>;
     errors: Partial<Record<ErrorType, number>>;
@@ -93,8 +91,8 @@ export interface GameState {
   settings: Settings;
   /** The learner's estimated CEFR level, from their own answers. */
   level: LevelState;
-  /** Blueprints the level engine delivered today: how many were free, what the rest cost. */
-  delivery?: { day: string; ids: string[]; free: number; paid: number };
+  /** Blueprints the level engine delivered today. */
+  delivery?: { day: string; ids: string[] };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -120,7 +118,8 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 };
 
-export const START_TALER = 300;
+/** Enough for the first toolbox or two workers. */
+export const START_TALER = 20;
 
 export function newGame(now: number): GameState {
   return {
@@ -137,7 +136,6 @@ export function newGame(now: number): GameState {
     custom: [],
     combo: 1,
     bestCombo: 1,
-    freeBlueprints: 0,
     stats: { days: {}, errors: {}, ruleHeat: {}, sentences: 0, perfect: 0, drillOk: 0, shifts: 0 },
     streak: { current: 0, best: 0, freezes: 0 },
     orders: { day: "", list: [], chestClaimed: false },

@@ -3,7 +3,7 @@ import { BUILTIN_ITEMS } from "../content/catalog";
 import type { Item } from "../content/types";
 import { buildDrillRound, checkDrill, DRILL_LABELS, drillSeed, type DrillQ } from "../engine/drills";
 import { applyDrill } from "../game/actions";
-import { drillReward, drillSeconds, factoryRate, fmt } from "../game/economy";
+import { drillReward, drillSeconds, fmt } from "../game/economy";
 import { store, useCatalog, useGame } from "../store/store";
 import { floatCoins, Icon, toast } from "./common";
 import { sfx } from "./fx";
@@ -25,7 +25,6 @@ export function DrillView() {
   const finished = useRef(true);
   const scoreRef = useRef(score);
   const boxRef = useRef<HTMLDivElement>(null);
-  const rate = factoryRate(s, catalog, Date.now());
   const seconds = drillSeconds(s);
 
   const owned = useMemo<Item[]>(
@@ -77,7 +76,7 @@ export function DrillView() {
   const answer = (given: string) => {
     if (!q || flash || finished.current) return;
     const ok = checkDrill(q, given);
-    const gain = ok ? drillReward(rate, score.streak) : 0;
+    const gain = ok ? drillReward(s, score.streak) : 0;
     const nextScore = {
       ok: score.ok + (ok ? 1 : 0),
       total: score.total + 1,

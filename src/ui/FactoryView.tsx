@@ -6,7 +6,7 @@ import { levelLabel, overall } from "../engine/level";
 import { shortName } from "../engine/tasks";
 import { dayKey } from "../engine/text";
 import { chestReady, claimChest, hallUnlocked } from "../game/actions";
-import { factoryRate, fmt, levelOf, machineRate, storageHours } from "../game/economy";
+import { factoryRate, fmt, levelOf, machineRate, perSentence, storageHours } from "../game/economy";
 import { orderText } from "../game/orders";
 import type { GameState } from "../game/state";
 import { store, useCatalog, useGame } from "../store/store";
@@ -67,7 +67,7 @@ function Orders() {
         </span>
       ) : (
         <span>
-          Tageskiste: <b>ein Gratis-Bauplan</b> im Laden
+          Tageskiste: <b>ein neuer Arbeiter</b> für deine Fabrik
         </span>
       ),
       5000,
@@ -202,17 +202,15 @@ export function FactoryView({
       <section className="hero">
         <div className="stack" style={{ gap: 4 }}>
           <span className="eyebrow" style={{ color: "inherit", opacity: 0.7 }}>
-            Produktion
+            Pro Satz
           </span>
-          <div className="big">{fmt(rate)} Taler/h</div>
+          <div className="big">+{fmt(perSentence(s))} Taler</div>
           <p className="muted small">
-            Läuft auch, wenn die App zu ist: bis zu {storageHours(s)} Stunden, dann ist das Lager voll.
+            Dazu {fmt(rate)} Taler pro Stunde aus Maschinen und Personal, auch wenn die App zu ist (bis zu {storageHours(s)} Stunden).
           </p>
           <p className="small">
             Dein Niveau: <b>{levelLabel(overall(s.level).theta).code}</b>
-            {delivery
-              ? ` · heute geliefert: ${delivery.ids.length} neue Baupläne${delivery.paid ? ` (${delivery.free} gratis, Rest für ${fmt(delivery.paid)} Taler)` : ""}`
-              : ""}
+            {delivery ? ` · heute geliefert: ${delivery.ids.length} neue Baupläne` : ""}
           </p>
         </div>
         <div className="stat-grid">
@@ -278,7 +276,7 @@ export function FactoryView({
                 </div>
               ) : items.length === 0 ? (
                 <div className="locked">
-                  Noch keine Maschinen. Hol dir im Laden einen Bauplan.{" "}
+                  Noch keine Maschinen. Die tägliche Lieferung bringt welche, oder du suchst sie im Lernplan aus.{" "}
                   <button type="button" className="btn small" onClick={onShop}>
                     Zum Laden
                   </button>

@@ -48,7 +48,7 @@ vi.mock("../src/content/catalog", () => {
 
 const { makeCatalog } = await import("../src/content/catalog");
 const { applyGrade, buyUpgrade, claimChest, finishShift, rollover, tick, unlock } = await import("../src/game/actions");
-const { factoryRate, idleEarnings, levelOf, storageHours, unlockCost, xpForLevel } = await import("../src/game/economy");
+const { factoryRate, idleEarnings, levelOf, perSentence, storageHours, xpForLevel } = await import("../src/game/economy");
 const { newGame } = await import("../src/game/state");
 const { buildShift } = await import("../src/engine/tasks");
 const { coerceGrade } = await import("../src/ai/schema");
@@ -95,13 +95,30 @@ describe("economy", () => {
     expect(e.hours).toBe(storageHours(s));
   });
 
-  it("charges for blueprints, more as the factory grows", () => {
+  it("never charges for learning material", () => {
     const s = newGame(T0);
-    const it = catalog.get("g.weil")!;
-    const first = unlockCost(s, it);
-    expect(unlock(s, it, T0)).toBeNull();
-    expect(s.taler).toBe(300 - first);
-    expect(unlockCost(s, catalog.get("n.termin")!)).toBeGreaterThan(40);
+    const before = s.taler;
+    expect(unlock(s, catalog.get("g.weil")!, T0)).toBeNull();
+    expect(s.taler).toBe(before);
+    expect(unlock(s, catalog.get("g.weil")!, T0)).toBe("owned");
+  });
+
+  it("pays one Taler per clean sentence at the start, more with the toolbox", () => {
+    const s = newGame(T0);
+    expect(perSentence(s)).toBe(1);
+    s.taler = 1e6;
+    expect(buyUpgrade(s, "werkzeug")).toBe(true);
+    expect(perSentence(s)).toBe(2);
+    expect(buyUpgrade(s, "arbeiter")).toBe(true);
+    expect(factoryRate(s, catalog, T0)).toBeGreaterThan(0);
+  });
+
+  it("buildings are built once", () => {
+    const s = newGame(T0);
+    s.taler = 1e7;
+    expect(buyUpgrade(s, "kantine")).toBe(true);
+    expect(buyUpgrade(s, "kantine")).toBe(false);
+    expect(perSentence(s)).toBeCloseTo(1.25);
   });
 
   it("levels follow the XP curve", () => {
@@ -122,7 +139,7 @@ describe("economy", () => {
 describe("a graded answer", () => {
   it("builds the machine, pays, raises the combo and logs the sentence", () => {
     const s = newGame(T0);
-    unlock(s, catalog.get("n.termin")!, T0, { free: true });
+    unlock(s, catalog.get("n.termin")!, T0);
     const task = buildShift({ cards: s.cards, catalog, now: T0, weakRules: [], size: 10 }).find((t) => t.type !== "intro")!;
     const ev = applyGrade(s, catalog, task, grade("correct"), "Ich habe morgen einen Termin.", T0);
     expect(ev.success).toBe(true);
@@ -135,7 +152,7 @@ describe("a graded answer", () => {
 
   it("a wrong answer resets the combo, never pays zero, and heats the rule", () => {
     const s = newGame(T0);
-    unlock(s, catalog.get("n.termin")!, T0, { free: true });
+    unlock(s, catalog.get("n.termin")!, T0);
     s.combo = 1.5;
     const task = buildShift({ cards: s.cards, catalog, now: T0, weakRules: [], size: 10 }).find((t) => t.type !== "intro")!;
     const ev = applyGrade(s, catalog, task, grade("wrong"), "x", T0);
@@ -149,7 +166,7 @@ describe("a graded answer", () => {
   it("counts the daily goal towards the streak", () => {
     const s = newGame(T0);
     s.settings.dailyGoal = 2;
-    unlock(s, catalog.get("n.termin")!, T0, { free: true });
+    unlock(s, catalog.get("n.termin")!, T0);
     const task = buildShift({ cards: s.cards, catalog, now: T0, weakRules: [], size: 10 }).find((t) => t.type !== "intro")!;
     applyGrade(s, catalog, task, grade("correct"), "a", T0);
     const ev = applyGrade(s, catalog, task, grade("correct"), "b", T0 + 1000);
@@ -187,7 +204,7 @@ describe("days", () => {
 
   it("idle ticks never pay twice for the same time", () => {
     const s = newGame(T0);
-    unlock(s, catalog.get("n.termin")!, T0, { free: true });
+    unlock(s, catalog.get("n.termin")!, T0);
     const task = buildShift({ cards: s.cards, catalog, now: T0, weakRules: [], size: 10 }).find((t) => t.type !== "intro")!;
     applyGrade(s, catalog, task, grade("correct"), "a", T0);
     s.lastTick = T0;

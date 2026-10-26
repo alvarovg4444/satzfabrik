@@ -431,7 +431,7 @@ function layoutHall(
     const rx = cx0 + Math.floor((cw - rowW) / 2);
     for (let c = 0; c < perRow; c++) free.push({ x: rx + c * (st.w + st.gap), y, w: st.w, h: st.h });
     y += st.h + st.aisle;
-    note = "Bauplan im Laden holen";
+    note = "Wartet auf Lieferung";
   }
 
   inner.h = y - inner.y + PAD - 4;

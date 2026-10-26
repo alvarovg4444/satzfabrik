@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { HALLS, TOPICS, type HallId, type Item, type Level, type TopicId } from "../content/types";
 import { shortName } from "../engine/tasks";
 import { fold } from "../engine/text";
-import { LEVEL_NUM, levelLabel, overall } from "../engine/level";
-import { buyUpgrade, canUnlock, FREE_DELIVERY, hallUnlocked, recommendFor, unlock } from "../game/actions";
-import { fmt, unlockCost } from "../game/economy";
-import { UPGRADES, upgradeCost } from "../game/upgrades";
+import { B2_UNLOCK, LEVEL_NUM, levelLabel, overall } from "../engine/level";
+import { buyUpgrade, canUnlock, hallUnlocked, recommendFor, unlock } from "../game/actions";
+import { factoryRate, fmt, perSentence, storageHours } from "../game/economy";
+import type { GameState } from "../game/state";
+import { GROUPS, UPGRADES, upgradeCost, type UpgradeDef, type UpgradeGroup } from "../game/upgrades";
 import { store, useCatalog, useGame } from "../store/store";
 import { Icon, toast } from "./common";
 import { sfx } from "./fx";
@@ -24,18 +25,16 @@ const KIND_DE: Record<Item["kind"], string> = {
 function BlueprintRow({ it, onInfo }: { it: Item; onInfo: () => void }) {
   const s = useGame();
   const err = canUnlock(s, it);
-  const free = s.freeBlueprints > 0;
-  const cost = unlockCost(s, it);
-  const buy = () => {
+  const add = () => {
     const res = store.update((d) => unlock(d, it, Date.now()));
     if (res) {
-      toast(res === "too_expensive" ? "Nicht genug Taler. Schreib ein paar Sätze!" : res === "locked_hall" ? "Diese Halle ist noch gesperrt." : "Schon gekauft.");
+      toast(res === "locked_hall" ? "Diese Halle ist noch gesperrt." : res === "locked_level" ? `B2 öffnet sich ab Niveau ${levelLabel(B2_UNLOCK).code}.` : "Schon auf dem Plan.");
       return;
     }
     sfx.coin();
     toast(
       <span>
-        Bauplan <b>{shortName(it)}</b> gekauft. Er kommt in deiner nächsten Schicht dran.
+        <b>{shortName(it)}</b> steht auf deinem Plan und kommt bald in einer Schicht dran.
       </span>,
     );
   };
@@ -47,17 +46,131 @@ function BlueprintRow({ it, onInfo }: { it: Item; onInfo: () => void }) {
           {it.en} · <span className="level-tag">{it.level}</span> {KIND_DE[it.kind]}
         </div>
       </button>
-      <button type="button" className={`btn small ${err ? "" : "primary"}`} disabled={!!err && err !== "too_expensive"} onClick={buy}>
-        {free ? "Gratis" : <span className="price">{fmt(cost)}</span>}
+      <button type="button" className={`btn small ${err ? "" : "primary"}`} disabled={!!err} onClick={add}>
+        {err === "locked_level" ? "ab B1+" : err === "locked_hall" ? "gesperrt" : "Lernen"}
       </button>
     </div>
+  );
+}
+
+/** The current value an upgrade improves, so the shop shows what you get. */
+function currentValue(s: GameState, u: UpgradeDef, rate: number): string | null {
+  switch (u.id) {
+    case "werkzeug":
+    case "meisterbrief":
+    case "kantine":
+    case "ausbildung":
+    case "teststrecke":
+      return `jetzt ${fmt(perSentence(s))} Taler pro Satz`;
+    case "arbeiter":
+      return `${s.upgrades.arbeiter ?? 0} Arbeiter`;
+    case "gabelstapler":
+      return `${s.upgrades.gabelstapler ?? 0} Stapler`;
+    case "lkw":
+      return `${s.upgrades.lkw ?? 0} Lastwagen`;
+    case "fliessband":
+    case "parkhaus":
+    case "solarpark":
+    case "bahn":
+      return `jetzt ${fmt(rate)} Taler/h`;
+    case "lagerhalle":
+    case "wasserturm":
+      return `jetzt ${storageHours(s)} h Lager`;
+    default:
+      return null;
+  }
+}
+
+function UpgradeRow({ u, rate }: { u: UpgradeDef; rate: number }) {
+  const s = useGame();
+  const lvl = s.upgrades[u.id] ?? 0;
+  const maxed = lvl >= u.max;
+  const cost = upgradeCost(u, lvl);
+  const hallLocked = u.id.startsWith("halle_") && !hallUnlocked(s, u.id.slice(6) as HallId);
+  const now = currentValue(s, u, rate);
+  const building = u.group === "gebaeude";
+  return (
+    <div className={`list-item upgrade ${maxed ? "done" : ""}`}>
+      <div style={{ minWidth: 0 }}>
+        <div className="t">
+          {u.de}{" "}
+          <span className="level-tag">{building ? (maxed ? "gebaut" : "Bauplatz") : u.max > 1 ? `Stufe ${lvl}/${u.max}` : ""}</span>
+        </div>
+        <div className="small">{u.effect}</div>
+        <div className="small muted">
+          {now ? `${now}` : ""}
+          {now && u.visual ? " · " : ""}
+          {u.visual ? `Karte: ${u.visual}` : ""}
+        </div>
+      </div>
+      <button
+        type="button"
+        className={`btn small ${s.taler >= cost && !maxed && !hallLocked ? "primary" : ""}`}
+        disabled={maxed || hallLocked || s.taler < cost}
+        onClick={() => {
+          if (store.update((d) => buyUpgrade(d, u.id))) {
+            sfx.levelUp();
+            toast(
+              <span>
+                <b>{u.de}</b> {building ? "gebaut! Schau auf die Karte." : "ausgebaut!"}
+              </span>,
+            );
+          }
+        }}
+      >
+        {maxed ? (building ? "Steht" : "Max") : hallLocked ? "gesperrt" : <span className="price">{fmt(cost)}</span>}
+      </button>
+    </div>
+  );
+}
+
+function UpgradeShop() {
+  const s = useGame();
+  const catalog = useCatalog();
+  const rate = factoryRate(s, catalog, Date.now());
+  return (
+    <>
+      <section className="card stack">
+        <div className="stat-grid">
+          <div className="stat">
+            <span className="v">{fmt(perSentence(s))}</span>
+            <span className="l">Taler pro Satz</span>
+          </div>
+          <div className="stat">
+            <span className="v">{fmt(rate)}</span>
+            <span className="l">Taler pro Stunde</span>
+          </div>
+          <div className="stat">
+            <span className="v">{storageHours(s)} h</span>
+            <span className="l">Offline-Lager</span>
+          </div>
+        </div>
+        <p className="small muted">
+          Mit Talern baust du die Fabrik aus: mehr Taler für jeden Satz, Personal, das weiterarbeitet, wenn die App zu ist, und große
+          Gebäude auf dem Gelände. Wörter und Grammatik kosten nie etwas: die liefert die Fabrik jeden Tag passend zu deinem Niveau.
+        </p>
+      </section>
+      {(Object.keys(GROUPS) as UpgradeGroup[]).map((g) => (
+        <section key={g} className="card stack" aria-label={GROUPS[g].de}>
+          <div>
+            <h3>{GROUPS[g].de}</h3>
+            <p className="small muted">{GROUPS[g].blurb}</p>
+          </div>
+          <div className="list">
+            {UPGRADES.filter((u) => u.group === g).map((u) => (
+              <UpgradeRow key={u.id} u={u} rate={rate} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </>
   );
 }
 
 export function ShopView() {
   const s = useGame();
   const catalog = useCatalog();
-  const [tab, setTab] = useState<"plans" | "upgrades">("plans");
+  const [tab, setTab] = useState<"plans" | "upgrades">("upgrades");
   const [hall, setHall] = useState<HallId | "all" | "custom">("all");
   const [topic, setTopic] = useState<TopicId | "all">("all");
   const [level, setLevel] = useState<Level | "all">("all");
@@ -89,19 +202,14 @@ export function ShopView() {
       <div className="spread">
         <h1>Laden</h1>
         <div className="seg" role="group" aria-label="Bereich">
-          <button type="button" aria-pressed={tab === "plans"} onClick={() => setTab("plans")}>
-            Baupläne
-          </button>
           <button type="button" aria-pressed={tab === "upgrades"} onClick={() => setTab("upgrades")}>
             Ausbau
           </button>
+          <button type="button" aria-pressed={tab === "plans"} onClick={() => setTab("plans")}>
+            Lernplan
+          </button>
         </div>
       </div>
-      {s.freeBlueprints > 0 ? (
-        <p className="pill" style={{ alignSelf: "flex-start", borderColor: "var(--signal)" }}>
-          {s.freeBlueprints} Gratis-Bauplan{s.freeBlueprints > 1 ? "e" : ""} verfügbar
-        </p>
-      ) : null}
 
       {tab === "plans" ? (
         <>
@@ -109,10 +217,10 @@ export function ShopView() {
             <section className="card stack">
               <h3>Empfohlen für dich</h3>
               <p className="small muted">
-                Passend zu deinem Niveau ({levelLabel(theta).code}) und deinen häufigsten Fehlern.
+                Passend zu deinem Niveau ({levelLabel(theta).code}) und deinen häufigsten Fehlern. Kostenlos:
                 {s.settings.autoDeliver
-                  ? ` Jeden Tag liefert die Fabrik solche Baupläne bis zu deinem Tageslimit (${s.settings.newPerDay}): ${FREE_DELIVERY} gratis, den Rest kauft sie mit höchstens der Hälfte deiner Taler. Hier kannst du dir zusätzlich welche aussuchen.`
-                  : " Automatische Lieferung ist aus (Einstellungen)."}
+                  ? ` jeden Tag liefert die Fabrik dir solche Baupläne bis zu deinem Tageslimit (${s.settings.newPerDay}). Hier kannst du dir zusätzlich welche aussuchen.`
+                  : " die automatische Lieferung ist aus (Einstellungen), also such dir hier aus, was du lernen willst."}
               </p>
               <div className="list">
                 {recs.map((it) => (
@@ -158,7 +266,7 @@ export function ShopView() {
               <input id="shop-search" className="input" style={{ flex: "1 1 160px" }} placeholder="Suchen (deutsch oder englisch)" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <p className="small muted">
-              {list.length} Baupläne. Der Preis steigt mit jeder Maschine, die du besitzt. Gratis-Baupläne gibt es bei jedem Level-Aufstieg.
+              {list.length} Baupläne, alle kostenlos. Was du hier auswählst, kommt zusätzlich zur täglichen Lieferung in deine Schichten.
             </p>
             <div className="list">
               {list.slice(0, limit).map((it) => (
@@ -173,50 +281,11 @@ export function ShopView() {
           </section>
         </>
       ) : (
-        <section className="card stack">
-          <p className="small muted">Ausbau macht deine Fabrik dauerhaft produktiver.</p>
-          <div className="list">
-            {UPGRADES.map((u) => {
-              const lvl = s.upgrades[u.id] ?? 0;
-              const maxed = lvl >= u.max;
-              const cost = upgradeCost(u, lvl);
-              const hallLocked = u.id.startsWith("halle_") && !hallUnlocked(s, u.id.slice(6) as HallId);
-              return (
-                <div key={u.id} className="list-item">
-                  <div style={{ minWidth: 0 }}>
-                    <div className="t">
-                      {u.de} <span className="level-tag">Stufe {lvl}/{u.max}</span>
-                    </div>
-                    <div className="small muted">
-                      {u.effect} · {u.en}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className={`btn small ${s.taler >= cost && !maxed && !hallLocked ? "primary" : ""}`}
-                    disabled={maxed || hallLocked || s.taler < cost}
-                    onClick={() => {
-                      if (store.update((d) => buyUpgrade(d, u.id))) {
-                        sfx.levelUp();
-                        toast(
-                          <span>
-                            <b>{u.de}</b> ausgebaut!
-                          </span>,
-                        );
-                      }
-                    }}
-                  >
-                    {maxed ? "Max" : <span className="price">{fmt(cost)}</span>}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        <UpgradeShop />
       )}
       {info ? <ItemSheet it={info} onClose={() => setInfo(null)} /> : null}
       <p className="small muted" style={{ textAlign: "center" }}>
-        <Icon name="spark" size={14} /> Tipp: Kauf lieber wenige Baupläne und halte deine Maschinen rostfrei.
+        <Icon name="spark" size={14} /> Tipp: Am meisten bringt der Werkzeugkasten am Anfang: jede Stufe gibt +1 Taler pro Satz.
       </p>
     </>
   );

@@ -4,16 +4,20 @@ import type { TargetStatus } from "../ai/schema";
 import { rustOf, stageOf, type CardState } from "../engine/srs";
 import type { TaskType } from "../engine/tasks";
 import type { GameState } from "./state";
-import { level } from "./upgrades";
+import { has, level } from "./upgrades";
 
 const HOUR = 3_600_000;
 
-/** Taler per hour for one machine at stage 1. Grammar machines are the big ones. */
-const BASE_RATE: Record<ItemKind, number> = { noun: 2, verb: 2.4, adj: 1.6, adv: 1.6, word: 1.6, expr: 3, gram: 6 };
+/**
+ * Taler per hour for one machine at stage 1. Machines are the steady, slow income;
+ * the fast income is writing (Taler per sentence) and the staff you hire.
+ */
+const BASE_RATE: Record<ItemKind, number> = { noun: 0.3, verb: 0.35, adj: 0.25, adv: 0.25, word: 0.25, expr: 0.45, gram: 0.9 };
 /** Output multiplier by stage 0–5 (blueprints produce nothing). */
 export const STAGE_MULT = [0, 1, 1.6, 2.4, 3.4, 5];
 
-const BASE_COST: Record<ItemKind, number> = { noun: 40, verb: 50, adj: 35, adv: 35, word: 35, expr: 60, gram: 120 };
+/** Taler per hour from each hired worker, forklift and truck. */
+const STAFF_RATE = { arbeiter: 1, gabelstapler: 5, lkw: 15 } as const;
 
 export function rustFloor(s: GameState): number {
   return 0.1 + 0.1 * level(s.upgrades, "schmieroel");
@@ -23,8 +27,34 @@ export function hallMult(s: GameState, hall: HallId): number {
   return 1 + 0.25 * level(s.upgrades, `halle_${hall}`);
 }
 
+/** Bonus from the HQ floors: +5 % on everything per floor. */
+function hqMult(s: GameState): number {
+  return (1 + 0.05 * level(s.upgrades, "verwaltung")) * (has(s.upgrades, "heliport") ? 1.5 : 1);
+}
+
+/** Multiplier on everything produced per hour. */
 export function globalMult(s: GameState): number {
-  return 1 + 0.15 * level(s.upgrades, "fliessband");
+  const u = s.upgrades;
+  return (
+    (1 + 0.15 * level(u, "fliessband")) *
+    (has(u, "parkhaus") ? 1.2 : 1) *
+    (has(u, "solarpark") ? 1.3 : 1) *
+    (has(u, "bahn") ? 1.3 : 1) *
+    hqMult(s)
+  );
+}
+
+/** Taler for one sentence before quality and combo: 1 to start, more with every Werkstatt upgrade. */
+export function perSentence(s: GameState): number {
+  const u = s.upgrades;
+  return (
+    (1 + level(u, "werkzeug")) *
+    Math.pow(1.25, level(u, "meisterbrief")) *
+    (has(u, "kantine") ? 1.25 : 1) *
+    (has(u, "ausbildung") ? 1.2 : 1) *
+    (has(u, "teststrecke") ? 1.5 : 1) *
+    hqMult(s)
+  );
 }
 
 /** Taler per hour this machine produces right now. */
@@ -37,8 +67,16 @@ export function machineRate(s: GameState, it: Item, card: CardState, now: number
   return BASE_RATE[it.kind] * STAGE_MULT[stage] * condition * hallMult(s, it.hall) * globalMult(s);
 }
 
+/** Taler per hour from workers, forklifts and trucks. */
+export function staffRate(s: GameState): number {
+  const u = s.upgrades;
+  const raw = STAFF_RATE.arbeiter * level(u, "arbeiter") + STAFF_RATE.gabelstapler * level(u, "gabelstapler") + STAFF_RATE.lkw * level(u, "lkw");
+  return raw * globalMult(s);
+}
+
+/** All production per hour: machines plus staff. */
 export function factoryRate(s: GameState, catalog: Catalog, now: number): number {
-  let sum = 0;
+  let sum = staffRate(s);
   for (const c of Object.values(s.cards)) {
     const it = catalog.get(c.id);
     if (it) sum += machineRate(s, it, c, now);
@@ -48,7 +86,7 @@ export function factoryRate(s: GameState, catalog: Catalog, now: number): number
 
 /** Hours of production that pile up while the app is closed. */
 export function storageHours(s: GameState): number {
-  return 8 + 4 * level(s.upgrades, "lagerhalle");
+  return 8 + 4 * level(s.upgrades, "lagerhalle") + level(s.upgrades, "lkw") + (has(s.upgrades, "wasserturm") ? 4 : 0);
 }
 
 /**
@@ -69,52 +107,42 @@ export function idleEarnings(s: GameState, catalog: Catalog, now: number): { amo
   return { amount, hours: span / HOUR, capped: elapsed > cap };
 }
 
-/**
- * Price of a blueprint (in the shop, and for the paid part of the daily delivery).
- * Grows with the number of machines you already own, so production growth is
- * spent on growth: when prices catch up with income, the delivery shrinks to its
- * free part instead of piling up machines you cannot maintain.
- */
-export function unlockCost(s: GameState, it: Item): number {
-  const owned = Object.keys(s.cards).length;
-  return Math.round(BASE_COST[it.kind] * Math.pow(1 + owned / 15, 1.8));
-}
-
-const QUALITY = { perfect: 1, minor: 0.75, major: 0.45 } as const;
+const QUALITY = { perfect: 1, minor: 0.75, major: 0.5 } as const;
 const STATUS: Record<TargetStatus, number> = { correct: 1, flawed: 0.7, synonym: 0.5, wrong: 0.25, missing: 0.15 };
-const TYPE: Record<TaskType, number> = { intro: 0, produce: 1, translate: 1.1, transform: 1, combo: 1.6 };
+const TYPE: Record<TaskType, number> = { intro: 0, produce: 1, translate: 1, transform: 1, combo: 1.5 };
 
 export function comboCap(s: GameState): number {
   return 2 + 0.5 * level(s.upgrades, "kombipresse");
 }
 
-/** Taler for one graded answer. Never zero: effort always pays a little. */
+/**
+ * Taler for one graded answer: Taler per sentence × quality × combo. A clean
+ * sentence at combo 1 pays exactly "Taler pro Satz". Never zero: effort always pays.
+ */
 export function taskReward(
   s: GameState,
-  rate: number,
   r: {
     type: TaskType;
     quality: keyof typeof QUALITY;
     statuses: TargetStatus[];
-    words: number;
     /** Average rust of the targets before repair (0–1). */
     rust: number;
+    /** Machines built with this answer. */
+    built: number;
   },
 ): number {
-  const base = 10 + 0.15 * rate;
   const targets = r.statuses.reduce((a, st) => a + STATUS[st], 0) / Math.max(1, r.statuses.length);
-  const length = r.words >= 10 ? 1.2 : 1;
-  const repair = 1 + 0.25 * r.rust;
-  const meister = 1 + 0.15 * level(s.upgrades, "meisterbrief");
-  return Math.max(1, Math.round(base * QUALITY[r.quality] * targets * TYPE[r.type] * length * repair * s.combo * meister));
+  const repair = 1 + 0.5 * r.rust;
+  const build = 1 + r.built;
+  return Math.max(1, Math.round(perSentence(s) * QUALITY[r.quality] * targets * TYPE[r.type] * repair * build * s.combo));
 }
 
-export function drillReward(rate: number, streak: number): number {
-  return Math.max(1, Math.round((2 + 0.03 * rate) * (1 + Math.min(streak, 10) * 0.1)));
+export function drillReward(s: GameState, streak: number): number {
+  return Math.max(1, Math.round(perSentence(s) * 0.25 * (1 + Math.min(streak, 10) * 0.1)));
 }
 
-export function shiftBonus(s: GameState, rate: number): number {
-  return Math.round((30 + 0.5 * rate) * (1 + 0.5 * level(s.upgrades, "schichtleiter")));
+export function shiftBonus(s: GameState): number {
+  return Math.round(perSentence(s) * 5 * (1 + 0.5 * level(s.upgrades, "schichtleiter")));
 }
 
 export function drillSeconds(s: GameState): number {
