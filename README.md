@@ -80,7 +80,7 @@ need the app version: a page opened from disk has no Cache Storage). To build it
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # dist/index.html (single file) + dist/artifact.html (claude.ai page)
-npm run release    # build, copy dist/index.html to app.html, write the app version to ../docs
+npm run release    # build, copy dist/index.html to app.html, write the app version to docs/
 ```
 
 In **Settings → KI-Korrektor**, pick one of:
