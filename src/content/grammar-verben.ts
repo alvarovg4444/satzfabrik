@@ -1,0 +1,1365 @@
+import type { GramItem } from "./types";
+
+// Verbschmiede: grammar machines for verbs and verb grammar.
+export const GRAMMAR_VERBEN: GramItem[] = [
+  {
+    id: "g.praesens-vokalwechsel",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Präsens mit Vokalwechsel",
+    en: "Present tense with vowel change",
+    name: "Präsens: Vokalwechsel",
+    cue: "Präsens mit Vokalwechsel (z. B. fährt)",
+    rule: "Some irregular verbs change their stem vowel in the du and er/sie/es forms: a → ä (fahren → du fährst, er fährt), e → i (helfen → er hilft) and e → ie (lesen → er liest). All other forms keep the vowel of the infinitive: ich fahre, wir fahren, ihr fahrt.",
+    pattern: "du / er, sie, es: a → ä, e → i, e → ie (du fährst, er fährt · du nimmst, er nimmt · du liest, er liest)",
+    example: {
+      de: "Mein Mann fährt jeden Morgen mit dem Rad zur Arbeit.",
+      en: "My husband cycles to work every morning.",
+    },
+    examples: [
+      {
+        de: "Mein Mann fährt jeden Morgen mit dem Rad zur Arbeit.",
+        en: "My husband cycles to work every morning.",
+      },
+      {
+        de: "Nimmst du heute Abend den Bus oder ein Taxi?",
+        en: "Are you taking the bus or a taxi this evening?",
+      },
+      {
+        de: "Meine Kollegin isst mittags meistens in der Kantine.",
+        en: "My colleague usually has lunch in the canteen.",
+      },
+    ],
+    translate: [
+      {
+        en: "My neighbour often helps me with the shopping.",
+        de: "Mein Nachbar hilft mir oft beim Einkaufen.",
+      },
+      {
+        en: "Do you sleep badly when it's hot?",
+        de: "Schläfst du schlecht, wenn es heiß ist?",
+      },
+      {
+        en: "She reads her emails on the train in the morning.",
+        de: "Sie liest ihre E-Mails morgens im Zug.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz mit „er“.",
+        input: "Ich nehme morgens den Zug um sieben.",
+        answer: "Er nimmt morgens den Zug um sieben.",
+      },
+      {
+        prompt: "Stell die Frage mit „du“.",
+        input: "Sprechen Sie Englisch?",
+        answer: "Sprichst du Englisch?",
+      },
+    ],
+    tip: "Don't write „er fahrt“ or „du nehmst“: learn these verbs with their er-form (fahren – fährt, nehmen – nimmt). Only du and er/sie/es change.",
+    errors: ["verb_form"],
+    keys: [],
+  },
+  {
+    id: "g.trennbare-verben",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Trennbare Verben",
+    en: "Separable verbs",
+    name: "Trennbare Verben",
+    cue: "Trennbares Verb (z. B. ruft … an)",
+    rule: "Separable verbs have a stressed prefix such as an-, auf-, ein-, mit- or zurück-. In a main clause the verb is in position 2 and the prefix goes to the end (Ich rufe dich an); in a subordinate clause and in the infinitive the verb stays together (…, weil ich dich anrufe). In the participle ge- goes in the middle (angerufen), and so does zu (anzurufen).",
+    pattern: "Hauptsatz: Subjekt + ruft (Pos. 2) + … + an. · Nebensatz: …, weil + Subjekt + … + anruft. · Partizip: an-ge-rufen · zu-Infinitiv: an-zu-rufen",
+    example: {
+      de: "Ich rufe morgen früh beim Bürgeramt an.",
+      en: "I'll call the citizens' office tomorrow morning.",
+    },
+    examples: [
+      {
+        de: "Ich rufe morgen früh beim Bürgeramt an.",
+        en: "I'll call the citizens' office tomorrow morning.",
+      },
+      {
+        de: "Kannst du mich abholen, wenn der Zug ankommt?",
+        en: "Can you pick me up when the train arrives?",
+      },
+      {
+        de: "Ich habe ganz vergessen, den Arzttermin abzusagen.",
+        en: "I completely forgot to cancel the doctor's appointment.",
+      },
+    ],
+    translate: [
+      {
+        en: "I get up at six every morning.",
+        de: "Ich stehe jeden Morgen um sechs auf.",
+      },
+      {
+        en: "Have you called the landlord yet?",
+        de: "Hast du den Vermieter schon angerufen?",
+      },
+      {
+        en: "Please don't forget to switch off the light.",
+        de: "Vergiss bitte nicht, das Licht auszumachen.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Perfekt.",
+        input: "Ich kaufe nach der Arbeit im Supermarkt ein.",
+        answer: "Ich habe nach der Arbeit im Supermarkt eingekauft.",
+      },
+      {
+        prompt: "Beginne mit „Ich glaube, dass …“.",
+        input: "Der Bus kommt gleich an.",
+        answer: "Ich glaube, dass der Bus gleich ankommt.",
+      },
+    ],
+    tip: "Don't forget the prefix at the end: „Ich rufe dich morgen an“, not „Ich anrufe dich“. In the participle ge- goes in the middle: angerufen, eingekauft.",
+    errors: ["word_order", "verb_form", "tense"],
+    keys: [],
+  },
+  {
+    id: "g.modalverben",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Modalverben",
+    en: "Modal verbs",
+    name: "Modalverben",
+    cue: "Modalverb (z. B. kann … kommen)",
+    rule: "Modal verbs (können, müssen, dürfen, sollen, wollen, möchten) go in position 2 and send the main verb to the end as an infinitive: Ich muss heute länger arbeiten. The ich and er/sie/es forms are identical and have no -t: ich muss, er muss; ich möchte, sie möchte. Careful: nicht müssen means „don't have to“, but nicht dürfen means „must not“.",
+    pattern: "Subjekt + Modalverb (Pos. 2) + … + Infinitiv (Ende).",
+    example: {
+      de: "Ich kann morgen leider nicht zur Besprechung kommen.",
+      en: "Unfortunately I can't come to the meeting tomorrow.",
+    },
+    examples: [
+      {
+        de: "Ich kann morgen leider nicht zur Besprechung kommen.",
+        en: "Unfortunately I can't come to the meeting tomorrow.",
+      },
+      {
+        de: "Der Arzt sagt, ich soll weniger Kaffee trinken.",
+        en: "The doctor says I should drink less coffee.",
+      },
+      {
+        de: "Sie müssen das Formular nicht ausdrucken, Sie können es auch online schicken.",
+        en: "You don't have to print the form; you can also send it online.",
+      },
+    ],
+    translate: [
+      {
+        en: "My husband has to work on Saturday.",
+        de: "Mein Mann muss am Samstag arbeiten.",
+      },
+      {
+        en: "You mustn't smoke in the stairwell.",
+        de: "Im Treppenhaus darf man nicht rauchen.",
+      },
+      {
+        en: "I'd like to open an account.",
+        de: "Ich möchte ein Konto eröffnen.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz mit „können“.",
+        input: "Wir treffen uns am Freitag nach der Arbeit.",
+        answer: "Wir können uns am Freitag nach der Arbeit treffen.",
+      },
+      {
+        prompt: "Sag es mit „nicht müssen“.",
+        input: "Es ist nicht nötig, dass du morgen kommst.",
+        answer: "Du musst morgen nicht kommen.",
+      },
+    ],
+    tip: "„nicht müssen“ = don't have to, „nicht dürfen“ = must not. No -t after ich/er: „er muss“, „er kann“ (not „er musst“). Infinitive at the end.",
+    errors: ["verb_form", "word_order", "word_choice"],
+    keys: [
+      "kann",
+      "kannst",
+      "können",
+      "könnt",
+      "muss",
+      "musst",
+      "müssen",
+      "müsst",
+      "darf",
+      "darfst",
+      "dürfen",
+      "dürft",
+      "soll",
+      "sollst",
+      "sollen",
+      "sollt",
+      "will",
+      "willst",
+      "wollen",
+      "wollt",
+      "möchte",
+      "möchtest",
+      "möchten",
+      "möchtet",
+    ],
+  },
+  {
+    id: "g.perfekt-haben",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Perfekt mit haben",
+    en: "Present perfect with haben",
+    name: "Perfekt mit haben",
+    cue: "Perfekt mit haben (z. B. hat gekauft)",
+    rule: "Most verbs form the Perfekt with haben in position 2 and the participle at the end. Regular verbs: ge- + stem + -(e)t (gekauft, gearbeitet); irregular verbs: ge- + stem + -en, often with a new vowel (gelesen, geschrieben). Verbs ending in -ieren and verbs with be-, ver-, er- or ent- have no ge-: telefoniert, bezahlt, verstanden.",
+    pattern: "Subjekt + haben (Pos. 2) + … + Partizip II (Ende).",
+    example: {
+      de: "Ich habe am Samstag eine neue Waschmaschine gekauft.",
+      en: "I bought a new washing machine on Saturday.",
+    },
+    examples: [
+      {
+        de: "Ich habe am Samstag eine neue Waschmaschine gekauft.",
+        en: "I bought a new washing machine on Saturday.",
+      },
+      {
+        de: "Hast du die E-Mail vom Vermieter schon gelesen?",
+        en: "Have you read the email from the landlord yet?",
+      },
+      {
+        de: "Der Techniker hat die Heizung heute Morgen repariert.",
+        en: "The technician repaired the heating this morning.",
+      },
+    ],
+    translate: [
+      {
+        en: "I paid the bill yesterday.",
+        de: "Ich habe die Rechnung gestern bezahlt.",
+      },
+      {
+        en: "We worked a lot last week.",
+        de: "Wir haben letzte Woche viel gearbeitet.",
+      },
+      {
+        en: "Did you understand the letter from the tax office?",
+        de: "Hast du den Brief vom Finanzamt verstanden?",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Perfekt.",
+        input: "Wir bezahlen die Rechnung online.",
+        answer: "Wir haben die Rechnung online bezahlt.",
+      },
+      {
+        prompt: "Schreib den Satz im Perfekt.",
+        input: "Sie schreibt dem Vermieter eine E-Mail.",
+        answer: "Sie hat dem Vermieter eine E-Mail geschrieben.",
+      },
+    ],
+    tip: "No ge- for -ieren verbs or verbs with be-, ver-, er-: „telefoniert“, „bezahlt“, „verstanden“, not „getelefoniert“ or „gebezahlt“.",
+    errors: ["tense", "aux", "verb_form", "word_order"],
+    keys: [],
+  },
+  {
+    id: "g.perfekt-sein",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Perfekt mit sein",
+    en: "Present perfect with sein",
+    name: "Perfekt mit sein",
+    cue: "Perfekt mit sein (z. B. ist gefahren)",
+    rule: "Verbs of movement from A to B (gehen, fahren, fliegen, kommen, umziehen) and verbs of change of state (aufstehen, einschlafen, werden) form the Perfekt with sein. The verbs sein, bleiben and passieren also take sein. The participle goes to the end: Ich bin nach Hause gegangen.",
+    pattern: "Subjekt + sein (Pos. 2) + … + Partizip II.",
+    example: {
+      de: "Wir sind letztes Jahr nach Köln umgezogen.",
+      en: "We moved to Cologne last year.",
+    },
+    examples: [
+      {
+        de: "Wir sind letztes Jahr nach Köln umgezogen.",
+        en: "We moved to Cologne last year.",
+      },
+      {
+        de: "Ich bin heute Morgen schon um fünf aufgestanden.",
+        en: "I got up at five this morning.",
+      },
+      {
+        de: "Mein Kollege ist gestern krank zu Hause geblieben.",
+        en: "My colleague stayed at home sick yesterday.",
+      },
+    ],
+    translate: [
+      {
+        en: "I flew to Spain last summer.",
+        de: "Ich bin letzten Sommer nach Spanien geflogen.",
+      },
+      {
+        en: "What happened to your car?",
+        de: "Was ist mit deinem Auto passiert?",
+      },
+      {
+        en: "It has got very cold over the last few days.",
+        de: "In den letzten Tagen ist es sehr kalt geworden.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Perfekt.",
+        input: "Ich gehe nach der Arbeit ins Fitnessstudio.",
+        answer: "Ich bin nach der Arbeit ins Fitnessstudio gegangen.",
+      },
+      {
+        prompt: "Schreib den Satz im Perfekt.",
+        input: "Der Bus kommt pünktlich an.",
+        answer: "Der Bus ist pünktlich angekommen.",
+      },
+    ],
+    tip: "Movement from A to B and change of state take sein: „Ich bin gefahren“, not „Ich habe gefahren“. So do bleiben and passieren.",
+    errors: ["aux", "tense", "word_order"],
+    keys: [],
+  },
+  {
+    id: "g.praeteritum",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Präteritum",
+    en: "Simple past",
+    name: "Präteritum",
+    cue: "Präteritum (z. B. war, hatte, konnte)",
+    rule: "In everyday speech the Präteritum is mainly used for sein (war), haben (hatte), the modal verbs (konnte, musste, wollte, durfte, sollte) and es gab. For most other verbs people use the Perfekt when they speak: Ich war krank und bin zu Hause geblieben. The ich and er/sie/es forms are the same: ich war, er war; ich musste, sie musste.",
+    pattern: "Subjekt + war / hatte / konnte / musste … (Pos. 2) + … (+ Infinitiv am Ende). · Es gab + Akkusativ.",
+    example: {
+      de: "Ich war letzte Woche krank und konnte nicht arbeiten.",
+      en: "I was ill last week and couldn't work.",
+    },
+    examples: [
+      {
+        de: "Ich war letzte Woche krank und konnte nicht arbeiten.",
+        en: "I was ill last week and couldn't work.",
+      },
+      {
+        de: "Gestern Abend hatten wir im ganzen Haus keinen Strom.",
+        en: "Yesterday evening we had no electricity in the whole building.",
+      },
+      {
+        de: "Es gab Probleme mit der Bahn, deshalb musste ich ein Taxi nehmen.",
+        en: "There were problems with the trains, so I had to take a taxi.",
+      },
+    ],
+    translate: [
+      {
+        en: "Where were you yesterday evening?",
+        de: "Wo warst du gestern Abend?",
+      },
+      {
+        en: "I wanted to call you, but I had to work late.",
+        de: "Ich wollte dich anrufen, aber ich musste lange arbeiten.",
+      },
+      {
+        en: "There were no appointments left at the citizens' office.",
+        de: "Beim Bürgeramt gab es keine Termine mehr.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Präteritum.",
+        input: "Ich habe keine Zeit, weil ich arbeiten muss.",
+        answer: "Ich hatte keine Zeit, weil ich arbeiten musste.",
+      },
+      {
+        prompt: "Schreib den Satz im Präteritum.",
+        input: "Im Hotel gibt es kein WLAN.",
+        answer: "Im Hotel gab es kein WLAN.",
+      },
+    ],
+    tip: "Past modals have no umlaut: ich konnte, musste, durfte. „könnte“ and „müsste“ are Konjunktiv II (could, would have to), not past.",
+    errors: ["tense", "verb_form"],
+    keys: [
+      "war",
+      "warst",
+      "waren",
+      "wart",
+      "hatte",
+      "hattest",
+      "hatten",
+      "hattet",
+      "konnte",
+      "konntest",
+      "konnten",
+      "konntet",
+      "musste",
+      "musstest",
+      "mussten",
+      "musstet",
+      "durfte",
+      "durftest",
+      "durften",
+      "durftet",
+      "sollte",
+      "solltest",
+      "sollten",
+      "solltet",
+      "wollte",
+      "wolltest",
+      "wollten",
+      "wolltet",
+      "gab",
+    ],
+  },
+  {
+    id: "g.plusquamperfekt",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "Plusquamperfekt",
+    en: "Past perfect",
+    name: "Plusquamperfekt",
+    cue: "Plusquamperfekt (z. B. hatte gegessen)",
+    rule: "The Plusquamperfekt describes something that happened before another event in the past. Form it with hatte or war + participle, choosing haben or sein as in the Perfekt. It is typical after nachdem: Nachdem ich gefrühstückt hatte, fuhr ich zur Arbeit.",
+    pattern: "Subjekt + hatte/war (Pos. 2) + … + Partizip II. · Nachdem + Subjekt + … + Partizip II + hatte/war, + Verb (Präteritum) + …",
+    example: {
+      de: "Nachdem ich die Wohnung besichtigt hatte, rief ich sofort den Vermieter an.",
+      en: "After I had viewed the flat, I called the landlord straight away.",
+    },
+    examples: [
+      {
+        de: "Nachdem ich die Wohnung besichtigt hatte, rief ich sofort den Vermieter an.",
+        en: "After I had viewed the flat, I called the landlord straight away.",
+      },
+      {
+        de: "Als ich am Bahnhof ankam, war der Zug schon abgefahren.",
+        en: "When I got to the station, the train had already left.",
+      },
+      {
+        de: "Ich hatte meinen Ausweis zu Hause vergessen, deshalb konnte ich das Paket nicht abholen.",
+        en: "I had left my ID at home, so I couldn't pick up the parcel.",
+      },
+    ],
+    translate: [
+      {
+        en: "After we had eaten, we went for a walk.",
+        de: "Nachdem wir gegessen hatten, gingen wir spazieren.",
+      },
+      {
+        en: "When I arrived, the meeting had already started.",
+        de: "Als ich ankam, hatte die Besprechung schon angefangen.",
+      },
+      {
+        en: "I couldn't pay because I had forgotten my card.",
+        de: "Ich konnte nicht bezahlen, weil ich meine Karte vergessen hatte.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Verbinde die Sätze mit „nachdem“.",
+        input: "Ich bin nach Hause gekommen. Dann habe ich meine Mutter angerufen.",
+        answer: "Nachdem ich nach Hause gekommen war, rief ich meine Mutter an.",
+      },
+      {
+        prompt: "Schreib den Satz im Plusquamperfekt.",
+        input: "Sie hat den Termin vergessen.",
+        answer: "Sie hatte den Termin vergessen.",
+      },
+    ],
+    tip: "Keep the auxiliary from the Perfekt: „ist gegangen“ → „war gegangen“ (not „hatte gegangen“). After nachdem, use the Plusquamperfekt for the earlier action.",
+    errors: ["tense", "aux", "word_order"],
+    keys: [],
+  },
+  {
+    id: "g.reflexive-verben",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Reflexive Verben",
+    en: "Reflexive verbs",
+    name: "Reflexive Verben",
+    cue: "Reflexives Verb (z. B. ich beeile mich)",
+    rule: "Reflexive verbs need a pronoun that refers back to the subject: ich freue mich, du beeilst dich, er meldet sich an. Normally it is accusative (mich, dich, sich, uns, euch), but when there is another accusative object, use the dative: Ich wasche mir die Hände. Only ich and du have different dative forms (mir, dir).",
+    pattern: "Subjekt + Verb + mich/dich/sich/uns/euch + … · mit Akk-Objekt: Subjekt + Verb + mir/dir/sich … + Akk-Objekt",
+    example: {
+      de: "Ich freue mich schon auf das Wochenende.",
+      en: "I'm already looking forward to the weekend.",
+    },
+    examples: [
+      {
+        de: "Ich freue mich schon auf das Wochenende.",
+        en: "I'm already looking forward to the weekend.",
+      },
+      {
+        de: "Wir müssen uns beeilen, der Zug fährt gleich ab.",
+        en: "We have to hurry – the train is about to leave.",
+      },
+      {
+        de: "Kannst du dir die Adresse merken?",
+        en: "Can you remember the address?",
+      },
+    ],
+    translate: [
+      {
+        en: "I registered at the citizens' office yesterday.",
+        de: "Ich habe mich gestern beim Bürgeramt angemeldet.",
+      },
+      {
+        en: "Hurry up, the film starts in ten minutes!",
+        de: "Beeil dich, der Film fängt in zehn Minuten an!",
+      },
+      {
+        en: "I still have to brush my teeth.",
+        de: "Ich muss mir noch die Zähne putzen.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz mit „ich“.",
+        input: "Er meldet sich für den Deutschkurs an.",
+        answer: "Ich melde mich für den Deutschkurs an.",
+      },
+      {
+        prompt: "Schreib den Satz mit „du“.",
+        input: "Ich merke mir die Telefonnummer.",
+        answer: "Du merkst dir die Telefonnummer.",
+      },
+    ],
+    tip: "Don't drop the pronoun: „Ich beeile mich“, not „Ich beeile“. With a second object use mir/dir: „Ich wasche mir die Hände“, not „mich“.",
+    errors: ["pronoun", "case", "missing_word"],
+    keys: [],
+  },
+  {
+    id: "g.verben-mit-praepositionen",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "Verben mit Präpositionen",
+    en: "Verbs with prepositions",
+    name: "Verb + Präposition",
+    cue: "Verb + Präposition (z. B. warten auf)",
+    rule: "Many verbs need a fixed preposition, and the preposition decides the case: warten auf, denken an, sich interessieren für, sich kümmern um, sich beschweren über and sich bewerben um take the accusative; Angst haben vor and teilnehmen an take the dative. The preposition often differs from English (wait for = warten auf), so learn each verb together with its preposition and case.",
+    pattern: "Subjekt + Verb + … + Präposition + Akk/Dat (warten auf + Akk, Angst haben vor + Dat)",
+    example: {
+      de: "Ich warte seit zwanzig Minuten auf den Bus.",
+      en: "I've been waiting for the bus for twenty minutes.",
+    },
+    examples: [
+      {
+        de: "Ich warte seit zwanzig Minuten auf den Bus.",
+        en: "I've been waiting for the bus for twenty minutes.",
+      },
+      {
+        de: "Meine Tochter hat Angst vor dem Zahnarzt.",
+        en: "My daughter is afraid of the dentist.",
+      },
+      {
+        de: "Ich möchte mich um die Stelle als Buchhalterin bewerben.",
+        en: "I'd like to apply for the job as an accountant.",
+      },
+    ],
+    translate: [
+      {
+        en: "I often think of my family.",
+        de: "Ich denke oft an meine Familie.",
+      },
+      {
+        en: "Who's looking after your cat while you're on holiday?",
+        de: "Wer kümmert sich um deine Katze, während du im Urlaub bist?",
+      },
+      {
+        en: "Next month I'm taking part in a first-aid course.",
+        de: "Nächsten Monat nehme ich an einem Erste-Hilfe-Kurs teil.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Ergänze die Präposition.",
+        input: "Ich interessiere mich sehr ___ moderne Kunst.",
+        answer: "Ich interessiere mich sehr für moderne Kunst.",
+      },
+      {
+        prompt: "Ergänze die Präposition und den Artikel.",
+        input: "Wir beschweren uns beim Vermieter ___ Lärm.",
+        answer: "Wir beschweren uns beim Vermieter über den Lärm.",
+      },
+    ],
+    tip: "Learn the preposition and case with the verb: „auf den Bus warten“ (Akk), „Angst vor dem Hund“ (Dat). Don't translate from English: „warten für“ is wrong.",
+    errors: ["preposition", "case"],
+    keys: [],
+  },
+  {
+    id: "g.da-wo-woerter",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "da- und wo-Wörter (darauf, worauf)",
+    en: "Prepositional adverbs (darauf, worauf)",
+    name: "darauf / worauf",
+    cue: "da-/wo-Wort (z. B. darauf, worauf)",
+    rule: "For things and ideas, replace „preposition + it/that“ with da(r)- + preposition (Ich warte darauf) and „preposition + what“ in questions with wo(r)- + preposition (Worauf wartest du?). Add -r- when the preposition starts with a vowel: darauf, daran, worüber. For people, keep the preposition + pronoun: auf ihn, mit ihr, auf wen?",
+    pattern: "Sache: da(r) + Präposition (darauf, dafür) · Frage: wo(r) + Präposition (worauf, wofür)? · Person: Präposition + Pronomen (auf ihn) / Präposition + wen/wem?",
+    example: {
+      de: "Die Rechnung? Darum kümmere ich mich morgen.",
+      en: "The bill? I'll take care of that tomorrow.",
+    },
+    examples: [
+      {
+        de: "Die Rechnung? Darum kümmere ich mich morgen.",
+        en: "The bill? I'll take care of that tomorrow.",
+      },
+      {
+        de: "Worüber habt ihr in der Besprechung gesprochen?",
+        en: "What did you talk about in the meeting?",
+      },
+      {
+        de: "Mein Bruder wohnt jetzt in Kanada, ich denke oft an ihn.",
+        en: "My brother lives in Canada now, and I often think of him.",
+      },
+    ],
+    translate: [
+      {
+        en: "The new contract? I haven't thought about it yet.",
+        de: "Der neue Vertrag? Darüber habe ich noch nicht nachgedacht.",
+      },
+      {
+        en: "What are you interested in?",
+        de: "Wofür interessierst du dich?",
+      },
+      {
+        en: "My sister is coming at six. Can you wait for her?",
+        de: "Meine Schwester kommt um sechs. Kannst du auf sie warten?",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Ersetze „auf den Urlaub“ durch ein da-Wort.",
+        input: "Ich freue mich schon auf den Urlaub.",
+        answer: "Ich freue mich schon darauf.",
+      },
+      {
+        prompt: "Frag nach „über den Lärm“.",
+        input: "Die Mieter beschweren sich über den Lärm.",
+        answer: "Worüber beschweren sich die Mieter?",
+      },
+    ],
+    tip: "Use darauf, woran etc. only for things; for people say „auf ihn“, „an sie“ or „auf wen“. Add -r- before a vowel: darauf, not „daauf“.",
+    errors: ["pronoun", "preposition", "word_choice"],
+    keys: [
+      "darauf",
+      "daran",
+      "dafür",
+      "darüber",
+      "darum",
+      "damit",
+      "davon",
+      "dazu",
+      "davor",
+      "danach",
+      "dabei",
+      "darin",
+      "dagegen",
+      "worauf",
+      "woran",
+      "wofür",
+      "worüber",
+      "worum",
+      "womit",
+      "wovon",
+      "wozu",
+      "wovor",
+      "wonach",
+      "wobei",
+      "worin",
+      "wogegen", "auf ihn", "auf sie", "an ihn", "an sie", "mit ihm", "mit ihr", "für ihn", "für sie", "über ihn", "über sie", "auf wen", "an wen", "mit wem", "über wen"],
+  },
+  {
+    id: "g.imperativ",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Imperativ",
+    en: "Imperative",
+    name: "Imperativ",
+    cue: "Imperativ (z. B. Ruf mich an!)",
+    rule: "For du, drop du and the -st (or -t) ending: du kommst → Komm!, du liest → Lies!; e → i verbs keep the i (Nimm!), but a → ä verbs lose the umlaut (Fahr!). For ihr, use the ihr-form without ihr (Kommt!), and for Sie, put Sie after the verb (Kommen Sie!). Separable prefixes go to the end (Ruf mich an!), sein becomes Sei!/Seid!/Seien Sie!, and bitte, mal or doch make a request friendlier.",
+    pattern: "du: Stamm + …! (Komm!) · ihr: Verb-t + …! (Kommt!) · Sie: Verb-en + Sie + …! (Kommen Sie!) · trennbar: Ruf … an!",
+    example: {
+      de: "Ruf mich bitte an, wenn du angekommen bist.",
+      en: "Please call me when you've arrived.",
+    },
+    examples: [
+      {
+        de: "Ruf mich bitte an, wenn du angekommen bist.",
+        en: "Please call me when you've arrived.",
+      },
+      {
+        de: "Kommen Sie doch herein und nehmen Sie Platz!",
+        en: "Do come in and take a seat!",
+      },
+      {
+        de: "Seid bitte leise, das Baby schläft.",
+        en: "Please be quiet, the baby is asleep.",
+      },
+    ],
+    translate: [
+      {
+        en: "(to a friend) Take an umbrella with you, it's supposed to rain.",
+        de: "Nimm einen Regenschirm mit, es soll regnen.",
+      },
+      {
+        en: "(to a patient) Please don't be nervous.",
+        de: "Seien Sie bitte nicht nervös.",
+      },
+      {
+        en: "(to two friends) Come in and take your jackets off!",
+        de: "Kommt rein und zieht eure Jacken aus!",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Imperativ mit „Sie“.",
+        input: "Sie füllen bitte das Formular aus.",
+        answer: "Füllen Sie bitte das Formular aus.",
+      },
+      {
+        prompt: "Schreib den Imperativ mit „du“.",
+        input: "Du sprichst bitte etwas langsamer.",
+        answer: "Sprich bitte etwas langsamer.",
+      },
+    ],
+    tip: "The du-form has no -st and no du: „Komm!“, „Nimm!“ (not „Kommst!“). With Sie, Sie comes right after the verb: „Warten Sie bitte!“",
+    errors: ["verb_form", "word_order", "extra_word"],
+    keys: [],
+  },
+  {
+    id: "g.futur",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "Futur I",
+    en: "Future tense (Futur I)",
+    name: "Futur I",
+    cue: "werden + Infinitiv (z. B. wird regnen)",
+    rule: "Futur I is werden in position 2 + infinitive at the end: Das wird nicht lange dauern. Use it for predictions and guesses, promises and firm intentions (Ich werde pünktlich sein). For plans with a time expression, Germans usually just use the present: Morgen fahre ich nach Hamburg.",
+    pattern: "Subjekt + werden (Pos. 2) + … + Infinitiv (Ende).",
+    example: {
+      de: "Keine Sorge, ich werde dich nach der Besprechung anrufen.",
+      en: "Don't worry, I'll call you after the meeting.",
+    },
+    examples: [
+      {
+        de: "Keine Sorge, ich werde dich nach der Besprechung anrufen.",
+        en: "Don't worry, I'll call you after the meeting.",
+      },
+      {
+        de: "Laut Wetterbericht wird es am Wochenende regnen.",
+        en: "According to the forecast, it's going to rain at the weekend.",
+      },
+      {
+        de: "Das Paket wird wahrscheinlich erst am Montag ankommen.",
+        en: "The parcel probably won't arrive until Monday.",
+      },
+    ],
+    translate: [
+      {
+        en: "I promise I'll pay the rent on time.",
+        de: "Ich verspreche, ich werde die Miete pünktlich zahlen.",
+      },
+      {
+        en: "He isn't answering the phone – he'll probably still be at work.",
+        de: "Er geht nicht ans Telefon, er wird wohl noch bei der Arbeit sein.",
+      },
+      {
+        en: "It will be difficult to find a cheap flat.",
+        de: "Es wird schwierig sein, eine günstige Wohnung zu finden.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Futur I.",
+        input: "Ich rufe dich morgen an.",
+        answer: "Ich werde dich morgen anrufen.",
+      },
+      {
+        prompt: "Sag es im Präsens, ohne „werden“.",
+        input: "Wir werden nächste Woche umziehen.",
+        answer: "Wir ziehen nächste Woche um.",
+      },
+    ],
+    tip: "English „will“ is not German „will“: „Ich will kommen“ means I want to come. For the future say „Ich werde kommen“ or simply „Ich komme morgen“.",
+    errors: ["tense", "aux", "word_order", "word_choice"],
+    keys: ["werde", "wirst", "wird", "werden", "werdet"],
+  },
+  {
+    id: "g.konjunktiv-wuerde",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Konjunktiv II mit würde",
+    en: "würde + infinitive (would do)",
+    name: "würde + Infinitiv",
+    cue: "würde + Infinitiv (z. B. Würden Sie …?)",
+    rule: "Use würde (position 2) + infinitive at the end for the everyday Konjunktiv II: polite requests (Würden Sie bitte langsamer sprechen?), wishes (Ich würde gern mehr reisen) and unreal situations (Ich würde das nicht machen). To order or ask for something politely, say „Ich hätte gern …“.",
+    pattern: "Subjekt + würde (Pos. 2) + … + Infinitiv. · Würden Sie + … + Infinitiv? · Ich hätte gern + Akkusativ.",
+    example: {
+      de: "Würden Sie mir bitte das Formular erklären?",
+      en: "Would you please explain the form to me?",
+    },
+    examples: [
+      {
+        de: "Würden Sie mir bitte das Formular erklären?",
+        en: "Would you please explain the form to me?",
+      },
+      {
+        de: "Ich würde am Freitag gern von zu Hause arbeiten.",
+        en: "I'd like to work from home on Friday.",
+      },
+      {
+        de: "Ich hätte gern zwei Brötchen und einen Kaffee, bitte.",
+        en: "I'd like two rolls and a coffee, please.",
+      },
+    ],
+    translate: [
+      {
+        en: "Would you please close the window?",
+        de: "Würden Sie bitte das Fenster schließen?",
+      },
+      {
+        en: "If I were you, I'd call the landlord.",
+        de: "An deiner Stelle würde ich den Vermieter anrufen.",
+      },
+      {
+        en: "We'd like a table for two, please.",
+        de: "Wir hätten gern einen Tisch für zwei Personen, bitte.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Sag es höflicher.",
+        input: "Helfen Sie mir!",
+        answer: "Würden Sie mir bitte helfen?",
+      },
+      {
+        prompt: "Sag es höflicher.",
+        input: "Ich will einen Kaffee.",
+        answer: "Ich hätte gern einen Kaffee.",
+      },
+    ],
+    tip: "Put the infinitive at the end (Ich würde gern mehr reisen). When ordering, „Ich will …“ sounds rude: say „Ich hätte gern …“ or „Ich möchte …“.",
+    errors: ["verb_form", "word_order", "word_choice"],
+    keys: [
+      "würde",
+      "würdest",
+      "würden",
+      "würdet",
+      "hätte",
+      "hättest",
+      "hätten",
+      "hättet",
+    ],
+  },
+  {
+    id: "g.konjunktiv-haette-waere",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "Konjunktiv II: hätte, wäre, könnte",
+    en: "Subjunctive forms: would have, would be, could",
+    name: "hätte, wäre, könnte",
+    cue: "Konjunktiv II (z. B. hätte, wäre)",
+    rule: "The verbs haben and sein and the modal verbs have their own Konjunktiv II forms: hätte, wäre, könnte, müsste, dürfte (with umlaut) and sollte (without). Use them instead of würde + infinitive for unreal conditions and wishes (Wenn ich mehr Geld hätte, würde ich umziehen) and for polite questions (Könnten Sie …?). Du solltest … is the usual way to give advice.",
+    pattern: "Wenn + Subjekt + … + hätte/wäre/könnte, würde + Subjekt + … + Infinitiv. · Du solltest + … + Infinitiv.",
+    example: {
+      de: "Wenn ich mehr Zeit hätte, würde ich einen Deutschkurs machen.",
+      en: "If I had more time, I would take a German course.",
+    },
+    examples: [
+      {
+        de: "Wenn ich mehr Zeit hätte, würde ich einen Deutschkurs machen.",
+        en: "If I had more time, I would take a German course.",
+      },
+      {
+        de: "Könnten Sie mir bitte sagen, wo das Bürgeramt ist?",
+        en: "Could you please tell me where the citizens' office is?",
+      },
+      {
+        de: "Du solltest mal zum Arzt gehen, du hustest schon seit Tagen.",
+        en: "You should see a doctor – you've been coughing for days.",
+      },
+    ],
+    translate: [
+      {
+        en: "If I had a car, I wouldn't have to take the bus.",
+        de: "Wenn ich ein Auto hätte, müsste ich nicht mit dem Bus fahren.",
+      },
+      {
+        en: "It would be nice if you could come too.",
+        de: "Es wäre schön, wenn du auch kommen könntest.",
+      },
+      {
+        en: "You shouldn't work so much.",
+        de: "Du solltest nicht so viel arbeiten.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Konjunktiv II.",
+        input: "Wenn ich Zeit habe, komme ich mit.",
+        answer: "Wenn ich Zeit hätte, würde ich mitkommen.",
+      },
+      {
+        prompt: "Sag es höflicher.",
+        input: "Können Sie mir helfen?",
+        answer: "Könnten Sie mir helfen?",
+      },
+    ],
+    tip: "Don't drop the umlaut: hätte, wäre, könnte (hatte, war, konnte are past). Say „wenn ich Zeit hätte“, not „wenn ich Zeit haben würde“.",
+    errors: ["verb_form", "tense", "word_order"],
+    keys: [
+      "hätte",
+      "hättest",
+      "hätten",
+      "hättet",
+      "wäre",
+      "wärst",
+      "wären",
+      "wärt",
+      "könnte",
+      "könntest",
+      "könnten",
+      "könntet",
+      "müsste",
+      "müsstest",
+      "müssten",
+      "müsstet",
+      "sollte",
+      "solltest",
+      "sollten",
+      "solltet",
+      "dürfte",
+      "dürftest",
+      "dürften",
+      "dürftet",
+    ],
+  },
+  {
+    id: "g.konjunktiv-vergangenheit",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "Konjunktiv II der Vergangenheit",
+    en: "Past subjunctive (would have done)",
+    name: "hätte/wäre + Partizip",
+    cue: "hätte/wäre + Partizip (hätte gewusst)",
+    rule: "For unreal situations in the past, use hätte or wäre + participle, choosing haben or sein as in the Perfekt. It is typical for regrets and missed chances: Wenn ich gefragt hätte, wäre alles einfacher gewesen. With a modal verb, use hätte + two infinitives: Du hättest mich anrufen sollen.",
+    pattern: "Wenn + Subjekt + … + Partizip II + hätte/wäre, hätte/wäre + Subjekt + … + Partizip II.",
+    example: {
+      de: "Wenn der Zug pünktlich gewesen wäre, hätte ich den Anschluss bekommen.",
+      en: "If the train had been on time, I would have made my connection.",
+    },
+    examples: [
+      {
+        de: "Wenn der Zug pünktlich gewesen wäre, hätte ich den Anschluss bekommen.",
+        en: "If the train had been on time, I would have made my connection.",
+      },
+      {
+        de: "Ich wäre gern mitgekommen, aber ich musste leider arbeiten.",
+        en: "I would have liked to come along, but unfortunately I had to work.",
+      },
+      {
+        de: "Die Party war toll, sie hätte dir bestimmt gefallen.",
+        en: "The party was great – you would definitely have liked it.",
+      },
+    ],
+    translate: [
+      {
+        en: "If I had known that, I would have called you.",
+        de: "Wenn ich das gewusst hätte, hätte ich dich angerufen.",
+      },
+      {
+        en: "Without your help I wouldn't have found the flat.",
+        de: "Ohne deine Hilfe hätte ich die Wohnung nicht gefunden.",
+      },
+      {
+        en: "I should have asked earlier.",
+        de: "Ich hätte früher fragen sollen.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib einen wenn-Satz: Was wäre gewesen?",
+        input: "Ich hatte keine Zeit, deshalb bin ich nicht gekommen.",
+        answer: "Wenn ich Zeit gehabt hätte, wäre ich gekommen.",
+      },
+      {
+        prompt: "Schreib den Satz mit „hätte … sollen“.",
+        input: "Ich habe den Termin nicht abgesagt.",
+        answer: "Ich hätte den Termin absagen sollen.",
+      },
+    ],
+    tip: "Verbs with sein in the Perfekt take wäre: „Ich wäre gekommen“, not „Ich hätte gekommen“. Don't add würde: „wenn ich das gewusst hätte“.",
+    errors: ["aux", "tense", "verb_form", "word_order"],
+    keys: [],
+  },
+  {
+    id: "g.passiv-praesens",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "Passiv Präsens",
+    en: "Present passive",
+    name: "Passiv Präsens",
+    cue: "Passiv Präsens (z. B. wird geliefert)",
+    rule: "The passive puts the action in focus, not the person doing it: werden in position 2 + participle at the end. To say who does it, use von + dative: Die Kinder werden von ihrer Oma abgeholt. In everyday speech, a sentence with man is a common alternative: Man liefert die Möbel am Montag.",
+    pattern: "Subjekt + werden (Pos. 2) + … (+ von + Dativ) + Partizip II.",
+    example: {
+      de: "In diesem Restaurant wird alles frisch gekocht.",
+      en: "Everything is cooked fresh in this restaurant.",
+    },
+    examples: [
+      {
+        de: "In diesem Restaurant wird alles frisch gekocht.",
+        en: "Everything is cooked fresh in this restaurant.",
+      },
+      {
+        de: "Die Treppe wird jeden Montag vom Hausmeister geputzt.",
+        en: "The stairs are cleaned by the caretaker every Monday.",
+      },
+      {
+        de: "Wie wird dieses Wort ausgesprochen?",
+        en: "How is this word pronounced?",
+      },
+    ],
+    translate: [
+      {
+        en: "The heating will be repaired tomorrow.",
+        de: "Die Heizung wird morgen repariert.",
+      },
+      {
+        en: "In Germany, rubbish is separated.",
+        de: "In Deutschland wird der Müll getrennt.",
+      },
+      {
+        en: "New employees are trained by Mrs Klein.",
+        de: "Neue Mitarbeiter werden von Frau Klein eingearbeitet.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Passiv.",
+        input: "Der Arzt untersucht den Patienten.",
+        answer: "Der Patient wird vom Arzt untersucht.",
+      },
+      {
+        prompt: "Schreib den Satz mit „man“.",
+        input: "Die Briefe werden jeden Morgen abgeholt.",
+        answer: "Man holt die Briefe jeden Morgen ab.",
+      },
+    ],
+    tip: "For an action use werden: „Das Paket wird geliefert“. The Akk object becomes the subject (Nom): „Der Brief wird geschickt“, not „Den Brief wird …“.",
+    errors: ["aux", "verb_form", "case", "word_order"],
+    keys: ["werde", "wirst", "wird", "werden", "werdet"],
+  },
+  {
+    id: "g.passiv-vergangenheit",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "Passiv: Präteritum, Perfekt, mit Modalverb",
+    en: "Past passive and passive with modal verbs",
+    name: "Passiv: wurde / worden",
+    cue: "Passiv Vergangenheit (wurde gebaut)",
+    rule: "For the past passive, use wurde + participle (Das Haus wurde 1910 gebaut) or, in the Perfekt, sein + participle + worden (Das Haus ist 1910 gebaut worden). In the passive it is worden, not geworden. With a modal verb, the sentence ends with participle + werden: Die Miete muss pünktlich bezahlt werden.",
+    pattern: "Subjekt + wurde (Pos. 2) + … + Partizip II. · Subjekt + ist + … + Partizip II + worden. · Subjekt + Modalverb + … + Partizip II + werden.",
+    example: {
+      de: "Mein Fahrrad wurde gestern vor dem Bahnhof gestohlen.",
+      en: "My bike was stolen outside the station yesterday.",
+    },
+    examples: [
+      {
+        de: "Mein Fahrrad wurde gestern vor dem Bahnhof gestohlen.",
+        en: "My bike was stolen outside the station yesterday.",
+      },
+      {
+        de: "Ist die Rechnung schon bezahlt worden?",
+        en: "Has the bill been paid yet?",
+      },
+      {
+        de: "Die Waschmaschine muss dringend repariert werden.",
+        en: "The washing machine urgently needs to be repaired.",
+      },
+    ],
+    translate: [
+      {
+        en: "The flat was renovated last year.",
+        de: "Die Wohnung wurde letztes Jahr renoviert.",
+      },
+      {
+        en: "My application has been approved.",
+        de: "Mein Antrag ist genehmigt worden.",
+      },
+      {
+        en: "The form has to be signed.",
+        de: "Das Formular muss unterschrieben werden.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz im Passiv Präteritum.",
+        input: "Man hat die Straße letzte Woche gesperrt.",
+        answer: "Die Straße wurde letzte Woche gesperrt.",
+      },
+      {
+        prompt: "Schreib den Satz im Passiv.",
+        input: "Man muss den Antrag bis Freitag abgeben.",
+        answer: "Der Antrag muss bis Freitag abgegeben werden.",
+      },
+    ],
+    tip: "In the passive Perfekt write „worden“, not „geworden“, and use sein: „Das Paket ist geliefert worden“.",
+    errors: ["aux", "tense", "verb_form", "word_order"],
+    keys: ["wurde", "wurdest", "wurden", "wurdet", "worden", "werden"],
+  },
+  {
+    id: "g.lassen",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "lassen",
+    en: "lassen: have something done, let, leave",
+    name: "lassen",
+    cue: "lassen (z. B. Ich lasse … reparieren)",
+    rule: "With an infinitive at the end, lassen means that someone else does something for you (Ich lasse den Wasserhahn reparieren) or that you allow something (Lass mich mal fahren!). Without an infinitive, it means „leave“: Lass die Tür bitte offen. Note du lässt, er lässt, and in the Perfekt with an infinitive use lassen, not gelassen: Ich habe den Wasserhahn reparieren lassen.",
+    pattern: "Subjekt + lassen (Pos. 2) + Akk-Objekt + … + Infinitiv. · Perfekt: haben + … + Infinitiv + lassen.",
+    example: {
+      de: "Wir lassen die Küche nächste Woche neu streichen.",
+      en: "We're having the kitchen repainted next week.",
+    },
+    examples: [
+      {
+        de: "Wir lassen die Küche nächste Woche neu streichen.",
+        en: "We're having the kitchen repainted next week.",
+      },
+      {
+        de: "Lass mich bitte die Rechnung bezahlen, du hast letztes Mal bezahlt.",
+        en: "Please let me pay the bill – you paid last time.",
+      },
+      {
+        de: "Ich lasse das Auto heute zu Hause und fahre mit dem Rad.",
+        en: "I'm leaving the car at home today and going by bike.",
+      },
+    ],
+    translate: [
+      {
+        en: "I'm getting my hair cut tomorrow.",
+        de: "Ich lasse mir morgen die Haare schneiden.",
+      },
+      {
+        en: "Let me carry the bags.",
+        de: "Lass mich die Taschen tragen.",
+      },
+      {
+        en: "We had the door lock changed.",
+        de: "Wir haben das Türschloss austauschen lassen.",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz mit „lassen“.",
+        input: "Ein Mechaniker repariert mein Auto.",
+        answer: "Ich lasse mein Auto reparieren.",
+      },
+      {
+        prompt: "Schreib den Satz im Perfekt.",
+        input: "Ich lasse meine Jacke reinigen.",
+        answer: "Ich habe meine Jacke reinigen lassen.",
+      },
+    ],
+    tip: "With a second verb, the Perfekt uses lassen, not gelassen: „Ich habe das Auto reparieren lassen“. Watch the umlaut: du lässt, er lässt.",
+    errors: ["verb_form", "word_order", "tense"],
+    keys: [
+      "lasse",
+      "lässt",
+      "lassen",
+      "lasst",
+      "lass",
+      "ließ",
+      "ließen",
+      "ließt",
+      "gelassen",
+    ],
+  },
+  {
+    id: "g.verben-mit-dativ",
+    kind: "gram",
+    hall: "verben",
+    level: "A2",
+    de: "Verben mit Dativ",
+    en: "Verbs with the dative",
+    name: "Verben mit Dativ",
+    cue: "Verb + Dativ (z. B. hilft mir)",
+    rule: "Some verbs take a dative object, not an accusative: helfen, gefallen, gehören, danken, passen, schmecken, antworten, gratulieren, wehtun, fehlen (Ich helfe meiner Nachbarin). With gefallen, gehören, passen, schmecken, fehlen and wehtun, the person is in the dative and the thing is the subject: Die Wohnung gefällt mir. Verbs like geben, schenken, zeigen, erklären, empfehlen and leihen take a person in the dative and a thing in the accusative: Ich zeige dir die Küche.",
+    pattern: "Subjekt + Verb + Dativ (mir, meiner Chefin …) · Subjekt + Verb + Dativ (Person) + Akkusativ (Sache)",
+    example: {
+      de: "Kannst du mir am Samstag beim Umzug helfen?",
+      en: "Can you help me with the move on Saturday?",
+    },
+    examples: [
+      {
+        de: "Kannst du mir am Samstag beim Umzug helfen?",
+        en: "Can you help me with the move on Saturday?",
+      },
+      {
+        de: "Die neue Wohnung gefällt uns sehr gut.",
+        en: "We really like the new flat.",
+      },
+      {
+        de: "Der Kellner hat uns den Fisch empfohlen.",
+        en: "The waiter recommended the fish to us.",
+      },
+    ],
+    translate: [
+      {
+        en: "My back hurts.",
+        de: "Mir tut der Rücken weh.",
+      },
+      {
+        en: "I really miss my family.",
+        de: "Meine Familie fehlt mir sehr.",
+      },
+      {
+        en: "Can you lend me your car on Friday?",
+        de: "Kannst du mir am Freitag dein Auto leihen?",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib den Satz mit „gefallen“.",
+        input: "Ich mag die Farbe.",
+        answer: "Die Farbe gefällt mir.",
+      },
+      {
+        prompt: "Ergänze das Pronomen „du“ im Dativ.",
+        input: "Wir gratulieren ___ zum Geburtstag!",
+        answer: "Wir gratulieren dir zum Geburtstag!",
+      },
+    ],
+    tip: "The verb helfen always takes the dative: „Kannst du mir helfen?“, not „mich“. With gefallen and fehlen the person is dative: „Du fehlst mir“ = I miss you.",
+    errors: ["case", "pronoun", "word_order"],
+    keys: [],
+  },
+  {
+    id: "g.stellen-stehen",
+    kind: "gram",
+    hall: "verben",
+    level: "B1",
+    de: "stellen/stehen, legen/liegen, setzen/sitzen, hängen",
+    en: "Position verbs: put vs. stand, lie, sit, hang",
+    name: "stellen / stehen",
+    cue: "stellen/stehen, legen/liegen, hängen",
+    rule: "The action verbs stellen, legen, setzen and hängen (hängte, gehängt) answer „Wohin?“ and take the accusative after in, auf, an etc.: Ich lege das Handy auf den Tisch. The position verbs stehen, liegen, sitzen and hängen (hing, gehangen) answer „Wo?“ and take the dative: Das Handy liegt auf dem Tisch. Action verbs are regular (hat gestellt, gelegt, gesetzt); position verbs are irregular (hat gestanden, gelegen, gesessen; in southern Germany and Austria often ist).",
+    pattern: "Wohin? stellen/legen/setzen/hängen + in/auf/an … + Akk · Wo? stehen/liegen/sitzen/hängen + in/auf/an … + Dat",
+    example: {
+      de: "Kannst du die Milch bitte in den Kühlschrank stellen?",
+      en: "Can you put the milk in the fridge, please?",
+    },
+    examples: [
+      {
+        de: "Kannst du die Milch bitte in den Kühlschrank stellen?",
+        en: "Can you put the milk in the fridge, please?",
+      },
+      {
+        de: "Deine Schlüssel liegen auf dem Tisch im Flur.",
+        en: "Your keys are on the table in the hallway.",
+      },
+      {
+        de: "Wir haben das neue Bild über das Sofa gehängt.",
+        en: "We hung the new picture above the sofa.",
+      },
+    ],
+    translate: [
+      {
+        en: "Please put the bottles on the balcony.",
+        de: "Stell die Flaschen bitte auf den Balkon.",
+      },
+      {
+        en: "Your jacket is hanging on the coat rack.",
+        de: "Deine Jacke hängt an der Garderobe.",
+      },
+      {
+        en: "Come and sit next to me!",
+        de: "Komm, setz dich neben mich!",
+      },
+    ],
+    transform: [
+      {
+        prompt: "Schreib, wo der Brief jetzt ist.",
+        input: "Ich lege den Brief auf den Schreibtisch.",
+        answer: "Der Brief liegt auf dem Schreibtisch.",
+      },
+      {
+        prompt: "Schreib den Satz im Perfekt.",
+        input: "Wir stellen den Schrank ins Schlafzimmer.",
+        answer: "Wir haben den Schrank ins Schlafzimmer gestellt.",
+      },
+    ],
+    tip: "Ask „Wohin?“ or „Wo?“: „Ich lege den Schlüssel auf den Tisch“ (Akk), but „Der Schlüssel liegt auf dem Tisch“ (Dat). Never „Ich liege den Schlüssel“.",
+    errors: ["word_choice", "case", "verb_form", "tense"],
+    keys: [
+      "stelle",
+      "stellst",
+      "stellt",
+      "stellen",
+      "stellte",
+      "stellten",
+      "gestellt",
+      "stell",
+      "stehe",
+      "stehst",
+      "steht",
+      "stehen",
+      "stand",
+      "standen",
+      "gestanden",
+      "lege",
+      "legst",
+      "legt",
+      "legen",
+      "legte",
+      "legten",
+      "gelegt",
+      "leg",
+      "liege",
+      "liegst",
+      "liegt",
+      "liegen",
+      "lag",
+      "lagen",
+      "gelegen",
+      "setze",
+      "setzt",
+      "setzen",
+      "setzte",
+      "setzten",
+      "gesetzt",
+      "setz",
+      "sitze",
+      "sitzt",
+      "sitzen",
+      "saß",
+      "saßen",
+      "gesessen",
+      "hänge",
+      "hängst",
+      "hängt",
+      "hängen",
+      "hängte",
+      "hängten",
+      "gehängt",
+      "häng",
+      "hing",
+      "hingen",
+      "gehangen",
+    ],
+  },
+];

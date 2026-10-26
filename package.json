@@ -1,0 +1,33 @@
+{
+  "name": "satzfabrik",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A German sentence factory: an idle game where you only earn by writing real German, corrected by AI and scheduled with spaced repetition.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/build-artifact.mjs",
+    "release": "npm run build && cp dist/index.html app.html",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "sim": "SIM=1 vitest run tests/sim.test.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "ts-fsrs": "5.4.2",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vite-plugin-singlefile": "2.3.3",
+    "vitest": "5.0.3"
+  }
+}
