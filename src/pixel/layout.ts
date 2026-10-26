@@ -5,7 +5,7 @@ import { dayKey } from "../engine/text";
 import { hallUnlocked } from "../game/actions";
 import { levelOf } from "../game/economy";
 import type { GameState } from "../game/state";
-import { BUILDINGS, UPGRADE_BY_ID, level as upgradeLevel, type BuildingId, type UpgradeId } from "../game/upgrades";
+import { BUILDINGS, COUNTRIES, UPGRADE_BY_ID, level as upgradeLevel, type BuildingId, type UpgradeId } from "../game/upgrades";
 
 /*
  * Pure layout of the pixel factory: game state in, positions out (logical pixels).
@@ -102,6 +102,8 @@ export interface Building extends Rect {
   id: BuildingId;
   /** false: the next plot, fenced off, with its price on a sign. */
   built: boolean;
+  /** Expansion level 1–3 (0 for a plot). */
+  level: number;
   price: number;
   sign: string;
 }
@@ -122,6 +124,8 @@ export interface FactoryScene {
   decor: Decor[];
   /** Trucks in the fleet: how many of the vehicles on the roads are the factory's own car transporters. */
   fleet: number;
+  /** Flags in front of the HQ: Germany, then one per export market. */
+  flags: { x: number; y: number; code: string }[];
 }
 
 export const STATION: Record<StationKind, { w: number; h: number; gap: number; aisle: number }> = {
@@ -145,27 +149,66 @@ export const HALL_ORDER: HallId[] = ["satzbau", "woerter", "verben", "faelle", "
 
 /** Footprints on the factory grounds; w 0 spans the whole width (rail siding, test track). */
 export const BUILDING_SIZE: Record<BuildingId, { w: number; h: number }> = {
+  tankstelle: { w: 56, h: 36 },
   kantine: { w: 62, h: 40 },
   wasserturm: { w: 30, h: 52 },
+  kita: { w: 58, h: 40 },
   parkhaus: { w: 60, h: 46 },
+  sportplatz: { w: 72, h: 44 },
   ausbildung: { w: 64, h: 44 },
   solarpark: { w: 70, h: 34 },
+  feuerwache: { w: 58, h: 40 },
+  autohaus: { w: 60, h: 40 },
+  windpark: { w: 66, h: 52 },
   bahn: { w: 0, h: 24 },
+  forschung: { w: 60, h: 46 },
+  hochregal: { w: 50, h: 54 },
+  rechenzentrum: { w: 56, h: 38 },
+  hafen: { w: 0, h: 34 },
   teststrecke: { w: 0, h: 56 },
   heliport: { w: 46, h: 42 },
+  flugplatz: { w: 0, h: 40 },
+  rakete: { w: 40, h: 70 },
 };
+/** Some buildings grow with their level: decks, solar rows, a floor. */
+export function buildingSize(id: BuildingId, lvl: number): { w: number; h: number } {
+  const base = BUILDING_SIZE[id];
+  const extra = Math.max(0, Math.min(3, lvl) - 1);
+  switch (id) {
+    case "parkhaus":
+    case "solarpark":
+      return { w: base.w, h: base.h + 10 * extra };
+    case "ausbildung":
+      return { w: base.w, h: base.h + 9 * extra };
+    default:
+      return base;
+  }
+}
+
 /** The fenced plot for the next building. */
 export const PLOT = { w: 58, h: 34 };
 
 const BUILDING_SIGNS: Record<BuildingId, string> = {
+  tankstelle: "Tankstelle",
   kantine: "Kantine",
   wasserturm: "Wasserturm",
+  kita: "Kita",
   parkhaus: "Parkhaus",
+  sportplatz: "Sportplatz",
   ausbildung: "Ausbildung",
   solarpark: "Solarpark",
+  feuerwache: "Feuerwehr",
+  autohaus: "Autohaus",
+  windpark: "Windpark",
   bahn: "Gleis",
+  forschung: "Forschung",
+  hochregal: "Hochregal",
+  rechenzentrum: "Server",
+  hafen: "Hafen",
   teststrecke: "Teststrecke",
   heliport: "Heliport",
+  flugplatz: "Flugplatz",
+  rakete: "Rakete",
 };
 
 /** Tool shed sizes by toolbox level: 1–9, 10–19, 20+. */
@@ -295,9 +338,20 @@ export function layout(inp: MapInput): FactoryScene {
   roads.push({ x: 0, y, w: W, h: ROAD_H });
   y += ROAD_H + 4;
 
+  // a row of flags along the road: home, then every export market
+  const flags: FactoryScene["flags"] = [];
+  const markets = Math.min(COUNTRIES.length, up("export"));
+  if (markets > 0) {
+    const codes = ["de", ...COUNTRIES.slice(0, markets).map((c) => c.code)];
+    const pitch = Math.max(7, Math.min(11, Math.floor((W - 2 * M) / codes.length)));
+    const perRow = Math.floor((W - 2 * M) / pitch);
+    codes.forEach((code, i) => flags.push({ code, x: M + (i % perRow) * pitch, y: y + 1 + Math.floor(i / perRow) * 11 }));
+    y += 11 * Math.ceil(codes.length / perRow) + 2;
+  }
+
   // headquarters (one floor more per HQ upgrade) and the delivery lot
   const hqW = W >= 260 ? 80 : 68;
-  const floors = 1 + Math.min(6, up("verwaltung"));
+  const floors = 1 + Math.min(9, up("verwaltung"));
   const hqH = 10 + 16 + 8 + 10 * floors + 3;
   const hq = { x: M, y, w: hqW, h: hqH, floors, streak: inp.streak, total: inp.total, level: inp.level, stars: up("meisterbrief") };
   if (up("akkorduhr") > 0) decor.push({ kind: "clock", x: hq.x + hq.w + 1, y: hq.y + hq.h - 22, v: 0 });
@@ -368,7 +422,7 @@ export function layout(inp: MapInput): FactoryScene {
       }
     }
   }
-  return { w: W, h: y, roads, walkways, hq, lot, buildings: campus.buildings, halls, sites, stations, walks, decor, fleet: up("lkw") };
+  return { w: W, h: y, roads, walkways, hq, lot, buildings: campus.buildings, halls, sites, stations, walks, decor, fleet: up("lkw"), flags };
 }
 
 /** A walkway between the halls: people walk on it in two lanes, 4 px apart. */
@@ -450,7 +504,7 @@ function layoutCampus(
   let used = 0;
   for (const id of shown) {
     const built = id !== next;
-    const size = built ? BUILDING_SIZE[id] : PLOT;
+    const size = built ? buildingSize(id, upgradeLevel(upgrades, id)) : PLOT;
     if (size.w === 0) {
       rows.push({ cells: [{ id, w, h: size.h, built }], wide: true });
       continue;
@@ -472,7 +526,17 @@ function layoutCampus(
     const total = row.cells.reduce((n, c) => n + c.w, 0) + GAP * (row.cells.length - 1);
     let x = x0 + Math.floor((w - total) / 2);
     for (const c of row.cells) {
-      buildings.push({ id: c.id, built: c.built, price: UPGRADE_BY_ID.get(c.id)!.base, sign: BUILDING_SIGNS[c.id], x, y: y + rh - c.h, w: c.w, h: c.h });
+      buildings.push({
+        id: c.id,
+        built: c.built,
+        level: c.built ? Math.min(3, upgradeLevel(upgrades, c.id)) : 0,
+        price: UPGRADE_BY_ID.get(c.id)!.base,
+        sign: BUILDING_SIGNS[c.id],
+        x,
+        y: y + rh - c.h,
+        w: c.w,
+        h: c.h,
+      });
       x += c.w + GAP;
     }
     y += rh + GAP;
@@ -480,8 +544,10 @@ function layoutCampus(
   // apprentices in green helmets cross the forecourt of the training centre
   const school = buildings.find((b) => b.id === "ausbildung" && b.built);
   if (school) {
-    walks.push({ who: "trainee", x0: school.x + 2, x1: school.x + school.w - 14, y: school.y + school.h - 1, speed: 6, phase: 0.15 });
-    walks.push({ who: "trainee", x0: school.x + 2, x1: school.x + school.w - 14, y: school.y + school.h - 5, speed: 8, phase: 0.6 });
+    const n = school.level >= 3 ? 4 : 2;
+    for (let i = 0; i < n; i++) {
+      walks.push({ who: "trainee", x0: school.x + 2, x1: school.x + school.w - 14, y: school.y + school.h - 1 - (i % 2) * 4, speed: 6 + i * 1.5, phase: (0.15 + i * 0.27) % 1 });
+    }
   }
   return { buildings, h: Math.max(0, y - y0 - GAP) };
 }

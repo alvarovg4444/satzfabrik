@@ -2,7 +2,9 @@ import { fmt } from "../game/economy";
 import { text, textWidth } from "./font";
 import { SHED, type Building } from "./layout";
 import { bigPress } from "./machines";
-import { box, noise, px, rect, type Ctx, type Shade } from "./paint";
+import { ANIMATE2, DRAW2, lights2 } from "./campus2";
+import { BRICK, CONCRETE, CREAM, DIRT, DIRT_LO, FLAT_ROOF, GLASS, GLASS_HI, goldFlag, LIT, LIT_LO, PAVE, PAVE_LO, plate, SHADOW, speckle, TAR, window, WOOD } from "./campusKit";
+import { box, noise, px, rect, type Ctx } from "./paint";
 import { C, SPR } from "./sprites";
 
 /*
@@ -10,45 +12,6 @@ import { C, SPR } from "./sprites";
  * moving parts in animateBuilding), the plot for the next one, and the yard pieces
  * (tool shed, combo press, clock). Everything is drawn in logical pixels.
  */
-
-const SHADOW = "rgba(40,48,64,0.25)";
-const DIRT = "#c8a070";
-const DIRT_LO = "#a87c50";
-const PAVE = "#d8d8d0";
-const PAVE_LO = "#c0c0b6";
-const GLASS = "#7cc4f0";
-const GLASS_HI = "#c8ecff";
-const LIT = "#ffe9a0";
-const LIT_LO = "#c8a860";
-
-const CONCRETE: Shade = { o: C.ink, l: "#e4e6ea", m: "#c8ccd2", d: "#a4aab4" };
-const FLAT_ROOF: Shade = { o: C.ink, l: "#b8c0cc", m: "#9aa4b2", d: "#7a8494" };
-const CREAM: Shade = { o: C.ink, l: "#fff4c8", m: "#f2dc96", d: "#d0b468" };
-const BRICK: Shade = { o: C.ink, l: "#e88a70", m: "#c8604a", d: "#9a4434" };
-const WOOD: Shade = { o: C.ink, l: "#e0a868", m: "#c08048", d: "#8e5a30" };
-const TAR: Shade = { o: C.ink, l: "#7a6a5a", m: "#5e5046", d: "#463a32" };
-
-function plate(c: Ctx, label: string, cx: number, y: number, bg = "#fbfbf4", fg: string = C.ink): void {
-  const tw = textWidth(label);
-  const x = Math.round(cx - (tw + 6) / 2);
-  rect(c, x, y, tw + 6, 9, C.ink);
-  rect(c, x + 1, y + 1, tw + 4, 7, bg);
-  text(c, label, x + 3, y + 2, fg);
-}
-
-function window(c: Ctx, x: number, y: number, w: number, h: number): void {
-  rect(c, x, y, w, h, C.ink);
-  rect(c, x + 1, y + 1, w - 2, h - 2, GLASS);
-  rect(c, x + 1, y + 1, Math.max(1, Math.floor((w - 2) / 3)), 1, GLASS_HI);
-}
-
-function speckle(c: Ctx, x: number, y: number, w: number, h: number, seed: number, a: string, b: string, n: number): void {
-  for (let i = 0; i < n; i++) {
-    const nx = x + Math.floor(noise(i, seed, 41) * w);
-    const ny = y + Math.floor(noise(i, seed, 42) * h);
-    px(c, nx, ny, noise(i, seed, 43) < 0.5 ? a : b);
-  }
-}
 
 // --- the plot for the next building ------------------------------------------------
 
@@ -115,6 +78,8 @@ export function drawBuilding(c: Ctx, b: Building): void {
       return teststrecke(c, b);
     case "heliport":
       return heliport(c, b);
+    default:
+      return DRAW2[b.id]?.(c, b);
   }
 }
 
@@ -144,6 +109,13 @@ function kantine(c: Ctx, b: Building): void {
   speckle(c, x + 2, y + 2, w - 4, 10, x + y, "#8a94a2", "#c4ccd6", 40);
   box(c, x + w - 12, y + 2, 8, 6, { o: C.ink, l: C.metalHi, m: C.metal, d: C.metalLo });
   rect(c, x + w - 10, y + 4, 4, 1, C.metalLo);
+  if (b.level >= 3) {
+    // roof garden
+    rect(c, x + 2, y + 2, w - 16, 9, "#6cbc50");
+    for (let i = 0; i < 14; i++) px(c, x + 3 + Math.floor(noise(i, y, 61) * (w - 18)), y + 3 + Math.floor(noise(i, y, 62) * 7), i % 3 ? "#4c9a40" : "#f85868");
+    rect(c, x + 6, y + 3, 4, 4, "#3c9040");
+    rect(c, x + w - 22, y + 3, 4, 4, "#3c9040");
+  }
   // facade with big windows, a door and a green awning
   box(c, x, y + 14, w, 15, CREAM);
   for (const wx of [x + 4, x + 15, x + w - 23, x + w - 12]) window(c, wx, y + 19, 8, 7);
@@ -169,6 +141,13 @@ function kantine(c: Ctx, b: Building): void {
     parasol(c, px0, y + 29, cols[i]);
   });
   c.drawImage(SPR.worker("down", 0), x + 17, y + 24);
+  if (b.level >= 2) {
+    // flower boxes under the windows
+    for (const wx of [x + 4, x + 15, x + w - 23, x + w - 12]) {
+      rect(c, wx, y + 26, 8, 2, "#8e5a30");
+      for (let i = 0; i < 4; i++) px(c, wx + 1 + i * 2, y + 25, i % 2 ? "#f85868" : "#f8d030");
+    }
+  }
 }
 
 function wasserturm(c: Ctx, b: Building): void {
@@ -220,6 +199,15 @@ function wasserturm(c: Ctx, b: Building): void {
   }
   rect(c, x + 2, y + 9, 26, 1, C.ink);
   rect(c, x + 14, y, 2, 2, C.ink);
+  if (b.level >= 2) {
+    rect(c, x + 3, y + 24, 24, 2, C.orange);
+    rect(c, x + 3, y + 24, 24, 1, C.orangeHi);
+  }
+  if (b.level >= 3) {
+    rect(c, x + 22, y - 6, 1, 8, C.ink);
+    rect(c, x + 23, y - 6, 5, 3, "#3a72e0");
+    px(c, x + 24, y - 5, C.white);
+  }
 }
 
 function parkhaus(c: Ctx, b: Building): void {
@@ -230,8 +218,9 @@ function parkhaus(c: Ctx, b: Building): void {
   const slots = Math.floor((w - 4) / 14);
   for (let i = 0; i <= slots; i++) rect(c, x + 2 + i * 14, y + 3, 1, 17, C.white);
   for (let i = 0; i < slots; i++) if (i !== 2) c.drawImage(SPR.car((i * 3 + 1) % 10, i % 2 ? "down" : "up"), x + 4 + i * 14, y + 3);
-  // two open levels with car fronts
-  for (let k = 0; k < 2; k++) {
+  // open levels with car fronts: one more per expansion
+  const decks = 1 + Math.min(3, b.level);
+  for (let k = 0; k < decks; k++) {
     const ly = y + 23 + k * 10;
     box(c, x, ly, w, 4, CONCRETE);
     rect(c, x, ly + 4, w, 6, C.ink);
@@ -246,43 +235,47 @@ function parkhaus(c: Ctx, b: Building): void {
     }
     for (let i = x + 15; i < x + w - 4; i += 15) rect(c, i, ly + 4, 2, 6, CONCRETE.d);
   }
-  box(c, x, y + 43, w, 3, CONCRETE);
+  box(c, x, y + 23 + decks * 10, w, 3, CONCRETE);
   // blue P sign
   rect(c, x + 2, y + 1, 9, 9, C.ink);
   rect(c, x + 3, y + 2, 7, 7, "#2c6ad8");
   text(c, "P", x + 5, y + 3, C.white);
   // entry barrier
-  rect(c, x + w - 13, y + 38, 1, 5, C.ink);
-  for (let i = 0; i < 10; i++) px(c, x + w - 12 + i, y + 38, Math.floor(i / 2) % 2 ? C.white : C.red);
+  const by = y + 18 + decks * 10;
+  rect(c, x + w - 13, by, 1, 5, C.ink);
+  for (let i = 0; i < 10; i++) px(c, x + w - 12 + i, by, Math.floor(i / 2) % 2 ? C.white : C.red);
 }
 
 function ausbildung(c: Ctx, b: Building): void {
   const { x, y, w } = b;
+  // from level 2 the building has a third floor
+  const e = b.level >= 2 ? 9 : 0;
   // flat roof with skylights and the sign
   box(c, x, y, w, 14, FLAT_ROOF);
   for (const sx of [x + 6, x + 16, x + w - 22, x + w - 12]) {
     rect(c, sx, y + 2, 6, 4, C.ink);
     rect(c, sx + 1, y + 3, 4, 2, GLASS_HI);
   }
-  // brick facade, two rows of windows, a glass entrance under a canopy
-  box(c, x, y + 13, w, 22, BRICK);
-  for (let ry = y + 16; ry < y + 34; ry += 3) rect(c, x + 2, ry, w - 4, 1, BRICK.d);
-  for (const wy of [y + 16, y + 25]) for (const wx of [x + 4, x + 14, x + w - 22, x + w - 12]) window(c, wx, wy, 8, 6);
+  // brick facade, rows of windows, a glass entrance under a canopy
+  box(c, x, y + 13, w, 22 + e, BRICK);
+  for (let ry = y + 16; ry < y + 34 + e; ry += 3) rect(c, x + 2, ry, w - 4, 1, BRICK.d);
+  const rows = e ? [y + 16, y + 25, y + 34] : [y + 16, y + 25];
+  for (const wy of rows) for (const wx of [x + 4, x + 14, x + w - 22, x + w - 12]) window(c, wx, wy, 8, 6);
   const ex = x + Math.floor(w / 2) - 7;
-  rect(c, ex - 2, y + 20, 18, 3, C.ink);
-  rect(c, ex - 1, y + 21, 16, 1, "#5e6778");
-  rect(c, ex, y + 23, 14, 12, C.ink);
-  rect(c, ex + 1, y + 24, 12, 11, GLASS);
-  rect(c, ex + 7, y + 24, 1, 11, C.ink);
-  rect(c, ex + 1, y + 24, 2, 4, GLASS_HI);
+  rect(c, ex - 2, y + 20 + e, 18, 3, C.ink);
+  rect(c, ex - 1, y + 21 + e, 16, 1, "#5e6778");
+  rect(c, ex, y + 23 + e, 14, 12, C.ink);
+  rect(c, ex + 1, y + 24 + e, 12, 11, GLASS);
+  rect(c, ex + 7, y + 24 + e, 1, 11, C.ink);
+  rect(c, ex + 1, y + 24 + e, 2, 4, GLASS_HI);
   plate(c, "AUSBILDUNG", x + w / 2, y + 7);
   // forecourt where the apprentices walk
-  rect(c, x + 1, y + 35, w - 2, 9, PAVE);
-  for (let i = x + 1; i < x + w - 1; i += 6) rect(c, i, y + 35, 1, 9, PAVE_LO);
+  rect(c, x + 1, y + 35 + e, w - 2, 9, PAVE);
+  for (let i = x + 1; i < x + w - 1; i += 6) rect(c, i, y + 35 + e, 1, 9, PAVE_LO);
   // flag
-  rect(c, x + w - 3, y + 26, 1, 18, C.ink);
-  rect(c, x + w - 9, y + 26, 6, 4, C.ink);
-  rect(c, x + w - 8, y + 27, 5, 2, "#3cae5a");
+  rect(c, x + w - 3, y + 26 + e, 1, 18, C.ink);
+  rect(c, x + w - 9, y + 26 + e, 6, 4, C.ink);
+  rect(c, x + w - 8, y + 27 + e, 5, 2, "#3cae5a");
 }
 
 function solarpark(c: Ctx, b: Building): void {
@@ -311,7 +304,8 @@ function solarpark(c: Ctx, b: Building): void {
 function solarPanels(b: Building): { x: number; y: number; w: number; h: number }[] {
   const out = [];
   const pw = Math.floor((b.w - 8) / 3);
-  for (let r = 0; r < 3; r++) for (let i = 0; i < 3; i++) out.push({ x: b.x + 3 + i * (pw + 1), y: b.y + 3 + r * 10, w: pw, h: 8 });
+  const rows = 2 + Math.max(1, Math.min(3, b.level));
+  for (let r = 0; r < rows; r++) for (let i = 0; i < 3; i++) out.push({ x: b.x + 3 + i * (pw + 1), y: b.y + 3 + r * 10, w: pw, h: 8 });
   return out;
 }
 
@@ -383,6 +377,15 @@ function teststrecke(c: Ctx, b: Building): void {
     px(c, sx + 1, top + j, j % 2 ? C.ink : C.white);
   }
   plate(c, "TESTSTRECKE", (left + right) / 2, cy - 4);
+  if (b.level >= 3) {
+    // grandstand in the infield
+    const gx = Math.round((left + right) / 2) - 22;
+    const gy = Math.round(cy + 7);
+    rect(c, gx, gy, 44, 7, "#9aa4b2");
+    rect(c, gx, gy + 2, 44, 1, "#7a8494");
+    rect(c, gx, gy + 4, 44, 1, "#7a8494");
+    for (let i = 0; i < 40; i++) px(c, gx + 1 + Math.floor(noise(i, gy, 71) * 42), gy + Math.floor(noise(i, gy, 72) * 3) * 2 + 1, ["#e84038", "#3a72e0", "#f4c430", "#f8f8f8"][i % 4]);
+  }
 }
 
 function heliport(c: Ctx, b: Building): void {
@@ -405,6 +408,12 @@ function heliport(c: Ctx, b: Building): void {
   rect(c, x + w - 4, y + 2, 1, 7, C.ink);
   rect(c, x + w - 9, y + 2, 5, 2, C.orange);
   px(c, x + w - 7, y + 2, C.white);
+  if (b.level >= 2) {
+    // fuel truck
+    rect(c, x + 3, y + h - 11, 12, 7, C.ink);
+    rect(c, x + 4, y + h - 10, 7, 5, "#e4e8ee");
+    rect(c, x + 11, y + h - 10, 3, 5, C.red);
+  }
 }
 
 // --- yard pieces ---------------------------------------------------------------------
@@ -485,6 +494,8 @@ export function drawComboPress(c: Ctx, x: number, y: number, v: number, t: numbe
 
 export function animateBuilding(c: Ctx, b: Building, t: number): void {
   if (!b.built) return;
+  if (b.level >= 4) goldFlag(c, b.w > 120 ? b.x + 2 : b.x + b.w - 6, b.y - 9, t);
+  ANIMATE2[b.id]?.(c, b, t);
   switch (b.id) {
     case "kantine":
       steam(c, b.x + b.w - 8, b.y + 2, t);
@@ -536,11 +547,12 @@ const TRAIN_PERIOD = 28;
 const TRAIN_SPEED = 30;
 const LOCO_W = 28;
 const WAGON_W = 26;
-const WAGONS = 3;
+/** Car carriers behind the locomotive: three, five, seven. */
+const wagons = (b: Building) => 1 + 2 * Math.max(1, Math.min(3, b.level));
 
 /** Where the train's front is now, or null between trains. */
 export function trainFront(b: Building, t: number): number | null {
-  const len = LOCO_W + WAGONS * WAGON_W;
+  const len = LOCO_W + wagons(b) * WAGON_W;
   const p = (t + b.y * 0.13) % TRAIN_PERIOD;
   const front = b.x + p * TRAIN_SPEED;
   return front - len > b.x + b.w ? null : front;
@@ -566,7 +578,7 @@ function train(c: Ctx, b: Building, t: number): void {
   px(c, lx + LOCO_W - 1, y + 2, C.headlight);
   px(c, lx + LOCO_W - 1, y + 9, C.headlight);
   // car carriers with new cars
-  for (let i = 0; i < WAGONS; i++) {
+  for (let i = 0; i < wagons(b); i++) {
     const wx = lx - (i + 1) * WAGON_W;
     rect(c, wx + WAGON_W - 2, y + 5, 2, 2, C.ink);
     rect(c, wx, y + 1, WAGON_W - 2, 10, C.ink);
@@ -599,7 +611,9 @@ function raceCars(c: Ctx, b: Building, t: number): void {
   [
     { speed: 46, color: 0, off: 0 },
     { speed: 39, color: 1, off: 60 },
-  ].forEach((car) => {
+    { speed: 43, color: 6, off: 130 },
+    { speed: 36, color: 5, off: 200 },
+  ].slice(0, 1 + Math.max(1, Math.min(3, b.level))).forEach((car) => {
     const p = trackPoint(b, t * car.speed + car.off);
     const horizontal = Math.abs(p.dx) >= Math.abs(p.dy);
     const facing = horizontal ? (p.dx > 0 ? "right" : "left") : p.dy > 0 ? "down" : "up";
@@ -608,9 +622,23 @@ function raceCars(c: Ctx, b: Building, t: number): void {
   });
 }
 
+const HELI_PERIOD = 40;
+
 function helicopter(c: Ctx, b: Building, t: number): void {
   const cx = Math.round(b.x + b.w / 2);
-  const cy = Math.round(b.y + (b.h - 1) / 2);
+  let cy = Math.round(b.y + (b.h - 1) / 2);
+  if (b.level >= 3) {
+    // takes off now and then, flies off and comes back
+    const p = (t + b.x * 0.13) % HELI_PERIOD;
+    if (p > 34 && p < 37) return;
+    const up = p >= 28 && p <= 34 ? (p - 28) * 6 : p >= 37 ? (40 - p) * 12 : 0;
+    if (up > 0) {
+      c.globalAlpha = 0.25;
+      rect(c, cx - 4, cy - 6, 8, 12, "#000000");
+      c.globalAlpha = 1;
+      cy -= Math.round(up);
+    }
+  }
   // corner lights
   if (Math.floor(t * 1.5) % 2) for (const [lx, ly] of [
     [b.x + 2, b.y + 2],
@@ -651,6 +679,7 @@ function helicopter(c: Ctx, b: Building, t: number): void {
 /** Lit windows and lights after the night tint. */
 export function buildingLights(c: Ctx, b: Building, t: number): void {
   if (!b.built) return;
+  lights2(c, b, t);
   const { x, y, w } = b;
   const lit = (wx: number, wy: number, ww: number, wh: number) => {
     rect(c, wx + 1, wy + 1, ww - 2, wh - 2, LIT);

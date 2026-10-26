@@ -7,10 +7,10 @@ import type { Task } from "../engine/tasks";
 import { dayKey, daysBetween, hash, wordCount } from "../engine/text";
 import { ACHIEVEMENTS, type Achievement } from "./achievements";
 import { noteFocusResult } from "./coach";
-import { comboCap, factoryRate, idleEarnings, levelOf, perSentence, shiftBonus, taskReward } from "./economy";
+import { comboCap, factoryRate, idleEarnings, levelOf, perSentence, shiftBonus, taskReward, xpMult } from "./economy";
 import { dailyOrders, openChest, type ChestPrize, type Order } from "./orders";
 import { emptyDay, type DayStat, type GameState } from "./state";
-import { has, UPGRADE_BY_ID, upgradeCost, type UpgradeId } from "./upgrades";
+import { UPGRADE_BY_ID, upgradeCost, type UpgradeId } from "./upgrades";
 
 /*
  * All state changes live here as mutations on a draft copy; the store clones
@@ -216,7 +216,7 @@ const SUCCESS: TargetStatus[] = ["correct", "flawed"];
 
 function addXp(s: GameState, n: number): number | null {
   const before = levelOf(s.xp);
-  s.xp += Math.round(n * (has(s.upgrades, "ausbildung") ? 1.2 : 1));
+  s.xp += Math.round(n * xpMult(s));
   const after = levelOf(s.xp);
   if (after > before) {
     // Every level-up brings a new worker to the factory.

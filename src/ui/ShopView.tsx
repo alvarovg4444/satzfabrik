@@ -6,7 +6,7 @@ import { B2_UNLOCK, LEVEL_NUM, levelLabel, overall } from "../engine/level";
 import { buyUpgrade, canUnlock, hallUnlocked, recommendFor, unlock } from "../game/actions";
 import { factoryRate, fmt, perSentence, storageHours } from "../game/economy";
 import type { GameState } from "../game/state";
-import { GROUPS, UPGRADES, upgradeCost, type UpgradeDef, type UpgradeGroup } from "../game/upgrades";
+import { BUILDING_EFFECT, COUNTRIES, GROUPS, UPGRADES, upgradeCost, type BuildingId, type UpgradeDef, type UpgradeGroup } from "../game/upgrades";
 import { store, useCatalog, useGame } from "../store/store";
 import { Icon, toast } from "./common";
 import { sfx } from "./fx";
@@ -55,12 +55,16 @@ function BlueprintRow({ it, onInfo }: { it: Item; onInfo: () => void }) {
 
 /** The current value an upgrade improves, so the shop shows what you get. */
 function currentValue(s: GameState, u: UpgradeDef, rate: number): string | null {
+  if (u.group === "gebaeude") {
+    const e = BUILDING_EFFECT[u.id as BuildingId];
+    if (e.satz || e.all) return `jetzt ${fmt(perSentence(s))} Taler pro Satz`;
+    if (e.prod) return `jetzt ${fmt(rate)} Taler/h`;
+    if (e.lager) return `jetzt ${storageHours(s)} h Lager`;
+    return null;
+  }
   switch (u.id) {
     case "werkzeug":
     case "meisterbrief":
-    case "kantine":
-    case "ausbildung":
-    case "teststrecke":
       return `jetzt ${fmt(perSentence(s))} Taler pro Satz`;
     case "arbeiter":
       return `${s.upgrades.arbeiter ?? 0} Arbeiter`;
@@ -68,13 +72,11 @@ function currentValue(s: GameState, u: UpgradeDef, rate: number): string | null 
       return `${s.upgrades.gabelstapler ?? 0} Stapler`;
     case "lkw":
       return `${s.upgrades.lkw ?? 0} Lastwagen`;
+    case "export":
+      return `${s.upgrades.export ?? 0} Exportländer`;
     case "fliessband":
-    case "parkhaus":
-    case "solarpark":
-    case "bahn":
       return `jetzt ${fmt(rate)} Taler/h`;
     case "lagerhalle":
-    case "wasserturm":
       return `jetzt ${storageHours(s)} h Lager`;
     default:
       return null;
@@ -89,18 +91,27 @@ function UpgradeRow({ u, rate }: { u: UpgradeDef; rate: number }) {
   const hallLocked = u.id.startsWith("halle_") && !hallUnlocked(s, u.id.slice(6) as HallId);
   const now = currentValue(s, u, rate);
   const building = u.group === "gebaeude";
+  const title = u.id === "export" && !maxed ? `Export nach ${COUNTRIES[lvl]?.de ?? "Übersee"}` : u.de;
+  const tag = building
+    ? lvl === 0
+      ? "Bauplatz"
+      : maxed
+        ? "Gold"
+        : `Stufe ${lvl}/${u.max}`
+    : u.max > 1
+      ? `Stufe ${lvl}/${u.max}`
+      : "";
   return (
     <div className={`list-item upgrade ${maxed ? "done" : ""}`}>
       <div style={{ minWidth: 0 }}>
         <div className="t">
-          {u.de}{" "}
-          <span className="level-tag">{building ? (maxed ? "gebaut" : "Bauplatz") : u.max > 1 ? `Stufe ${lvl}/${u.max}` : ""}</span>
+          {title} {tag ? <span className="level-tag">{tag}</span> : null}
         </div>
         <div className="small">{u.effect}</div>
         <div className="small muted">
           {now ? `${now}` : ""}
           {now && u.visual ? " · " : ""}
-          {u.visual ? `Karte: ${u.visual}` : ""}
+          {u.visual ? `Karte: ${building && lvl > 0 && !maxed ? (lvl === u.max - 1 ? "Gold-Version" : "wird größer") : u.visual}` : ""}
         </div>
       </div>
       <button
@@ -112,15 +123,37 @@ function UpgradeRow({ u, rate }: { u: UpgradeDef; rate: number }) {
             sfx.levelUp();
             toast(
               <span>
-                <b>{u.de}</b> {building ? "gebaut! Schau auf die Karte." : "ausgebaut!"}
+                <b>{title}</b>{" "}
+                {building ? (lvl === 0 ? "gebaut! Schau auf die Karte." : lvl + 1 >= u.max ? "vergoldet!" : `ausgebaut auf Stufe ${lvl + 1}.`) : "ausgebaut!"}
               </span>,
             );
           }
         }}
       >
-        {maxed ? (building ? "Steht" : "Max") : hallLocked ? "gesperrt" : <span className="price">{fmt(cost)}</span>}
+        {maxed ? (building ? "Gold" : "Max") : hallLocked ? "gesperrt" : <span className="price">{fmt(cost)}</span>}
       </button>
     </div>
+  );
+}
+
+/** Buildings: the ones standing, then the next few projects; the rest behind a button. */
+function BuildingList({ rate }: { rate: number }) {
+  const s = useGame();
+  const [all, setAll] = useState(false);
+  const list = UPGRADES.filter((u) => u.group === "gebaeude");
+  const firstOpen = list.findIndex((u) => !(s.upgrades[u.id] ?? 0));
+  const shown = all || firstOpen < 0 ? list : list.filter((u, i) => (s.upgrades[u.id] ?? 0) > 0 || i < firstOpen + 3);
+  return (
+    <>
+      {shown.map((u) => (
+        <UpgradeRow key={u.id} u={u} rate={rate} />
+      ))}
+      {shown.length < list.length ? (
+        <button type="button" className="btn ghost small" onClick={() => setAll(true)}>
+          Alle {list.length} Bauprojekte zeigen
+        </button>
+      ) : null}
+    </>
   );
 }
 
@@ -157,9 +190,11 @@ function UpgradeShop() {
             <p className="small muted">{GROUPS[g].blurb}</p>
           </div>
           <div className="list">
-            {UPGRADES.filter((u) => u.group === g).map((u) => (
-              <UpgradeRow key={u.id} u={u} rate={rate} />
-            ))}
+            {g === "gebaeude" ? (
+              <BuildingList rate={rate} />
+            ) : (
+              UPGRADES.filter((u) => u.group === g).map((u) => <UpgradeRow key={u.id} u={u} rate={rate} />)
+            )}
           </div>
         </section>
       ))}

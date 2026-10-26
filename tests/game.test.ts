@@ -113,12 +113,14 @@ describe("economy", () => {
     expect(factoryRate(s, catalog, T0)).toBeGreaterThan(0);
   });
 
-  it("buildings are built once", () => {
+  it("buildings grow in four levels, each adding its bonus", () => {
     const s = newGame(T0);
-    s.taler = 1e7;
+    s.taler = 1e9;
     expect(buyUpgrade(s, "kantine")).toBe(true);
+    expect(perSentence(s)).toBeCloseTo(1.1);
+    for (let i = 0; i < 3; i++) expect(buyUpgrade(s, "kantine")).toBe(true);
     expect(buyUpgrade(s, "kantine")).toBe(false);
-    expect(perSentence(s)).toBeCloseTo(1.25);
+    expect(perSentence(s)).toBeCloseTo(1.4);
   });
 
   it("levels follow the XP curve", () => {
@@ -130,9 +132,9 @@ describe("economy", () => {
   it("upgrades cost Taler and stop at max level", () => {
     const s = newGame(T0);
     s.taler = 1e9;
-    for (let i = 0; i < 10; i++) buyUpgrade(s, "lagerhalle");
-    expect(s.upgrades.lagerhalle).toBe(4);
-    expect(storageHours(s)).toBe(24);
+    for (let i = 0; i < 12; i++) buyUpgrade(s, "lagerhalle");
+    expect(s.upgrades.lagerhalle).toBe(8);
+    expect(storageHours(s)).toBe(40);
   });
 });
 

@@ -4,89 +4,131 @@ import type { TargetStatus } from "../ai/schema";
 import { rustOf, stageOf, type CardState } from "../engine/srs";
 import type { TaskType } from "../engine/tasks";
 import type { GameState } from "./state";
-import { has, level } from "./upgrades";
+import { buildingBonus, level } from "./upgrades";
 
 const HOUR = 3_600_000;
 
-/**
- * Taler per hour for one machine at stage 1. Machines are the steady, slow income;
- * the fast income is writing (Taler per sentence) and the staff you hire.
+/*
+ * Everything is measured in sentences. Writing one sentence yourself pays "Taler pro
+ * Satz". Staff and machines also make sentence-equivalents while the app is closed,
+ * slowly: a worker makes one every 250 hours. Their Taler value grows with the same
+ * toolbox but with its own multipliers (production instead of per-sentence), so writing
+ * stays the main income and the idle part a bonus.
  */
-const BASE_RATE: Record<ItemKind, number> = { noun: 0.3, verb: 0.35, adj: 0.25, adv: 0.25, word: 0.25, expr: 0.45, gram: 0.9 };
-/** Output multiplier by stage 0–5 (blueprints produce nothing). */
-export const STAGE_MULT = [0, 1, 1.6, 2.4, 3.4, 5];
 
-/** Taler per hour from each hired worker, forklift and truck. */
-const STAFF_RATE = { arbeiter: 1, gabelstapler: 5, lkw: 15 } as const;
+/** Sentence-equivalents per hour from each worker, forklift and truck. */
+const STAFF_UNITS = { arbeiter: 0.004, gabelstapler: 0.016, lkw: 0.04 } as const;
+/** Weight of one machine at stage 1, by kind: grammar machines are the big ones. */
+const MACHINE_WEIGHT: Record<ItemKind, number> = { noun: 1, verb: 1.2, adj: 0.8, adv: 0.8, word: 0.8, expr: 1.5, gram: 3 };
+/** Output weight by stage 0–5 (blueprints produce nothing). */
+export const STAGE_MULT = [0, 1, 1.6, 2.4, 3.4, 5];
+/**
+ * A hall makes MACHINE_K × √(sum of its machines' weights) sentence-equivalents per
+ * hour: every machine adds, but with diminishing returns, so a giant word import does
+ * not outgrow writing.
+ */
+const MACHINE_K = 0.004;
 
 export function rustFloor(s: GameState): number {
-  return 0.1 + 0.1 * level(s.upgrades, "schmieroel");
+  return Math.min(0.9, 0.1 + 0.1 * level(s.upgrades, "schmieroel") + buildingBonus(s.upgrades, "rust"));
 }
 
 export function hallMult(s: GameState, hall: HallId): number {
   return 1 + 0.25 * level(s.upgrades, `halle_${hall}`);
 }
 
-/** Bonus from the HQ floors: +5 % on everything per floor. */
-function hqMult(s: GameState): number {
-  return (1 + 0.05 * level(s.upgrades, "verwaltung")) * (has(s.upgrades, "heliport") ? 1.5 : 1);
+/** HQ floors and export markets (+5 % each) and buildings that boost everything. */
+export function allMult(s: GameState): number {
+  return (1 + 0.05 * level(s.upgrades, "verwaltung") + 0.05 * level(s.upgrades, "export")) * (1 + buildingBonus(s.upgrades, "all"));
 }
 
-/** Multiplier on everything produced per hour. */
-export function globalMult(s: GameState): number {
-  const u = s.upgrades;
-  return (
-    (1 + 0.15 * level(u, "fliessband")) *
-    (has(u, "parkhaus") ? 1.2 : 1) *
-    (has(u, "solarpark") ? 1.3 : 1) *
-    (has(u, "bahn") ? 1.3 : 1) *
-    hqMult(s)
-  );
+/** Multiplier on what is produced while away: conveyors and production buildings. */
+export function prodMult(s: GameState): number {
+  return (1 + 0.15 * level(s.upgrades, "fliessband")) * (1 + buildingBonus(s.upgrades, "prod"));
+}
+
+/** Multiplier on written sentences: master's certificates and buildings like the canteen. */
+export function satzMult(s: GameState): number {
+  return Math.pow(1.25, level(s.upgrades, "meisterbrief")) * (1 + buildingBonus(s.upgrades, "satz"));
 }
 
 /** Taler for one sentence before quality and combo: 1 to start, more with every Werkstatt upgrade. */
 export function perSentence(s: GameState): number {
-  const u = s.upgrades;
-  return (
-    (1 + level(u, "werkzeug")) *
-    Math.pow(1.25, level(u, "meisterbrief")) *
-    (has(u, "kantine") ? 1.25 : 1) *
-    (has(u, "ausbildung") ? 1.2 : 1) *
-    (has(u, "teststrecke") ? 1.5 : 1) *
-    hqMult(s)
-  );
+  return (1 + level(s.upgrades, "werkzeug")) * satzMult(s) * allMult(s);
 }
 
-/** Taler per hour this machine produces right now. */
-export function machineRate(s: GameState, it: Item, card: CardState, now: number): number {
-  const stage = stageOf(card);
-  if (stage === 0) return 0;
-  const rust = rustOf(card, now);
-  const floor = rustFloor(s);
-  const condition = 1 - rust * (1 - floor);
-  return BASE_RATE[it.kind] * STAGE_MULT[stage] * condition * hallMult(s, it.hall) * globalMult(s);
+/** Taler for one sentence-equivalent made while away. */
+export function unitValue(s: GameState): number {
+  return (1 + level(s.upgrades, "werkzeug")) * prodMult(s) * allMult(s);
+}
+
+/** Sentence-equivalents per hour from the staff. */
+export function staffUnits(s: GameState): number {
+  const u = s.upgrades;
+  return STAFF_UNITS.arbeiter * level(u, "arbeiter") + STAFF_UNITS.gabelstapler * level(u, "gabelstapler") + STAFF_UNITS.lkw * level(u, "lkw");
 }
 
 /** Taler per hour from workers, forklifts and trucks. */
 export function staffRate(s: GameState): number {
-  const u = s.upgrades;
-  const raw = STAFF_RATE.arbeiter * level(u, "arbeiter") + STAFF_RATE.gabelstapler * level(u, "gabelstapler") + STAFF_RATE.lkw * level(u, "lkw");
-  return raw * globalMult(s);
+  return staffUnits(s) * unitValue(s);
+}
+
+function machineWeight(s: GameState, it: Item, card: CardState, now: number): number {
+  const stage = stageOf(card);
+  if (stage === 0) return 0;
+  const condition = 1 - rustOf(card, now) * (1 - rustFloor(s));
+  return MACHINE_WEIGHT[it.kind] * STAGE_MULT[stage] * condition;
+}
+
+/** Per hall: the summed machine weight and the sentence-equivalents per hour it makes. */
+type HallOutput = Map<HallId, { weight: number; units: number }>;
+const outputCache = new WeakMap<object, { key: string; out: HallOutput }>();
+
+export function hallOutput(s: GameState, catalog: Catalog, now: number): HallOutput {
+  // Cards change in place inside one update (a graded answer, a new blueprint), so the key
+  // also follows the number of cards and sentences, not only the object and the minute.
+  const key = `${Math.floor(now / 60_000)}|${Object.keys(s.cards).length}|${s.stats.sentences}|${s.updatedAt}|${JSON.stringify(s.upgrades)}`;
+  const hit = outputCache.get(s.cards);
+  if (hit && hit.key === key) return hit.out;
+  const out: HallOutput = new Map();
+  for (const c of Object.values(s.cards)) {
+    const it = catalog.get(c.id);
+    if (!it) continue;
+    const w = machineWeight(s, it, c, now);
+    if (w <= 0) continue;
+    const h = out.get(it.hall) ?? { weight: 0, units: 0 };
+    h.weight += w;
+    out.set(it.hall, h);
+  }
+  for (const [hall, h] of out) h.units = MACHINE_K * Math.sqrt(h.weight) * hallMult(s, hall);
+  outputCache.set(s.cards, { key, out });
+  return out;
+}
+
+/** Taler per hour this machine makes right now: its share of its hall's output. */
+export function machineRate(s: GameState, it: Item, card: CardState, now: number, catalog: Catalog): number {
+  const w = machineWeight(s, it, card, now);
+  if (w <= 0) return 0;
+  const h = hallOutput(s, catalog, now).get(it.hall);
+  if (!h || h.weight <= 0) return 0;
+  return (h.units * w) / h.weight * unitValue(s);
 }
 
 /** All production per hour: machines plus staff. */
 export function factoryRate(s: GameState, catalog: Catalog, now: number): number {
-  let sum = staffRate(s);
-  for (const c of Object.values(s.cards)) {
-    const it = catalog.get(c.id);
-    if (it) sum += machineRate(s, it, c, now);
-  }
-  return sum;
+  let units = staffUnits(s);
+  for (const h of hallOutput(s, catalog, now).values()) units += h.units;
+  return units * unitValue(s);
 }
 
 /** Hours of production that pile up while the app is closed. */
 export function storageHours(s: GameState): number {
-  return 8 + 4 * level(s.upgrades, "lagerhalle") + level(s.upgrades, "lkw") + (has(s.upgrades, "wasserturm") ? 4 : 0);
+  return 8 + 4 * level(s.upgrades, "lagerhalle") + level(s.upgrades, "lkw") + buildingBonus(s.upgrades, "lager");
+}
+
+/** Experience multiplier from the training buildings. */
+export function xpMult(s: GameState): number {
+  return 1 + buildingBonus(s.upgrades, "xp");
 }
 
 /**
@@ -98,7 +140,7 @@ export function idleEarnings(s: GameState, catalog: Catalog, now: number): { amo
   const cap = storageHours(s) * HOUR;
   const span = Math.min(elapsed, cap);
   if (span <= 0) return { amount: 0, hours: 0, capped: false };
-  const steps = span > HOUR ? 8 : 1;
+  const steps = span > HOUR ? 4 : 1;
   let amount = 0;
   for (let i = 0; i < steps; i++) {
     const t = s.lastTick + ((i + 0.5) / steps) * span;

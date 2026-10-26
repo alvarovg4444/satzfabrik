@@ -1,4 +1,5 @@
 import { animateBuilding, buildingLights, drawBuilding, drawClock, drawClockHands, drawComboPress, drawPlot, drawShed } from "./campus";
+import { flag } from "./campusKit";
 import type { Building, FactoryScene, HallBox, Rect, Site, Station } from "./layout";
 import { bench, bigPress, booth, freeSpot, press, PRESS_HIT, rack, robot, ROBOT_TIP } from "./machines";
 import { box, ctx2d, hazard, makeCanvas, noise, px, rect, type Ctx, type Shade } from "./paint";
@@ -530,6 +531,10 @@ function drawDynamic(c: Ctx, s: FactoryScene, t: number, top: number, bottom: nu
     }
   }
 
+  // flags of the export markets, fluttering
+  s.flags.forEach((f, i) => {
+    if (visible(f.y, 10)) flag(c, f.x, f.y, f.code, Math.floor(t * 2.5 + i * 0.7) % 2);
+  });
   // moving parts of the buildings: train, race cars, helicopter, steam
   for (const b of s.buildings) if (visible(b.y - 16, b.h + 16)) animateBuilding(c, b, t);
   for (const d of s.decor) {

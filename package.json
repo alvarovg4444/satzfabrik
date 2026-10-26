@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "sim": "SIM=1 vitest run tests/sim.test.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sim:long": "SIM_LONG=1 vitest run tests/longsim.test.ts --reporter=verbose"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",

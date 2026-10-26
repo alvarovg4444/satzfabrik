@@ -3,7 +3,7 @@ import { HALLS, TOPICS } from "../content/types";
 import { dueInDays, retrievability, rustOf, STAGE_NAMES, stageOf } from "../engine/srs";
 import { fmt } from "../game/economy";
 import { machineRate } from "../game/economy";
-import { useGame } from "../store/store";
+import { useCatalog, useGame } from "../store/store";
 import { Pips, Sheet, SpeakButton } from "./common";
 
 function genderName(g: "m" | "f" | "n") {
@@ -80,6 +80,7 @@ export function ItemDetails({ it }: { it: Item }) {
 
 export function ItemSheet({ it, onClose, onPractice }: { it: Item; onClose: () => void; onPractice?: (id: string) => void }) {
   const s = useGame();
+  const catalog = useCatalog();
   const card = s.cards[it.id];
   const now = Date.now();
   const stage = card ? stageOf(card) : 0;
@@ -108,7 +109,7 @@ export function ItemSheet({ it, onClose, onPractice }: { it: Item; onClose: () =
             <span className="row">
               <Pips stage={stage} /> <b>{STAGE_NAMES[stage]}</b>
             </span>
-            <span className="num small">{fmt(machineRate(s, it, card, now))} Taler/h</span>
+            <span className="num small">{fmt(machineRate(s, it, card, now, catalog))} Taler/h</span>
           </div>
           <p className="small muted">
             {stage === 0

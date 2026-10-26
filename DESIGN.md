@@ -160,20 +160,47 @@ What it drives:
 
 ## The game, and why each piece exists
 
-Taler come from two places: every sentence you write, and the machines and staff that
-produce while the app is closed. A sentence starts at **1 Taler** (more with quality, rust
-repaired, new machines and the combo). Taler build the factory, never your vocabulary:
+Taler come from two places: every sentence you write, and the staff and machines that keep
+working while the app is closed. Everything is counted in sentences: one you write pays
+"Taler pro Satz" (1 at the start, more with quality, repaired rust, new machines and the
+combo); a worker makes one sentence-equivalent every 250 hours, a hall makes
+0.004 × √(sum of its machines' stage weights) per hour, so a huge word import adds, but with
+diminishing returns. The toolbox raises the value of both; master's certificates and some
+buildings only the written sentences, conveyors and other buildings only the idle part.
+Writing therefore stays the main income: for a typical learner the idle part is about a
+quarter in the first month and about half after two years.
+
+Taler build the factory, never your vocabulary:
 
 | Shop group | What it buys | Examples |
 |---|---|---|
-| Werkstatt | More Taler per sentence | Toolbox (+1 per level, 30 levels), master's certificate (×1.25), combo press, shift supervisor, piecework clock |
-| Personal & Fahrzeuge | Production while the app is closed | Workers (+1/h each), forklifts (+5/h), car transporters (+15/h and storage) |
-| Anlagen | Multipliers | Conveyor belts, HQ floors (+5 % on everything), warehouse (storage), machine oil (rusty machines keep more), hall expansions |
-| Gebäude | Eight one-off projects | Canteen, water tower, car park, training centre, solar park, rail siding, test track, helicopter pad |
+| Werkstatt | More Taler per sentence | Toolbox (+1 per level, 60 levels), master's certificate (×1.25, 10), combo press, shift supervisor, piecework clock |
+| Personal & Fahrzeuge | Production while the app is closed | Workers (up to 200), forklifts (= 4 workers), car transporters (= 10 workers, +1 h storage) |
+| Anlagen | Multipliers | Conveyor belts, HQ floors and export markets (+5 % on everything each; a flag per country in front of the HQ), warehouse, machine oil, hall expansions |
+| Gebäude | 20 projects, 4 levels each | Filling station, canteen, water tower, daycare, car park, sports ground, training centre, solar park, fire station, showroom, wind farm, rail siding, research centre, high-bay warehouse, data centre, harbour, test track, helipad, airfield, rocket launch pad |
 
-Prices grow per level, so the first purchases come within a shift or two and the big
-buildings take weeks. The simulation (`npm run sim`) reaches about 90 Taler per sentence after
-a month of daily practice. Everything bought shows up on the factory map.
+Each building level adds its bonus again (bonuses of all buildings add up, so they never
+explode), changes the building on the map (a deck, a row of panels, a turbine, more
+wagons, a grandstand …), and level 4 is the gold version.
+
+**Two years, simulated.** `npm run sim:long` plays 730 days for three learners, spending
+like a completionist (always the cheapest thing affordable), and building prices were
+calibrated with it so a typical learner meets a new building about every 3–6 weeks:
+
+| Learner | Bought after 1 month / 1 year / 2 years | Buildings after 2 years | New visible things in year 2 | Longest wait for one |
+|---|---|---|---|---|
+| Light: 4 days a week, 1 shift | 13 % / 50 % / 67 % | 15 of 20 | 41 | 30 days |
+| Typical: 6 days a week, 2 shifts | 23 % / 70 % / 92 % | all 20, 12 of them gold | 58 | 16 days |
+| Heavy: every day, 3 shifts | 28 % / 83 % / 98 % | all 20, 18 of them gold | 52 | 24 days |
+
+Before this, the same typical learner had bought 83 % of everything after one month and
+literally everything on day 297; nothing new came for the rest of the two years. Nobody
+finishes now: the last levels of the toolbox, the export markets and the late buildings
+stay as goals beyond two years.
+
+The vocabulary sets its own pace: at the default of 10 new machines a day, a learner who
+practises most days has met every word up to B2 after about 14 months, and from then on
+shifts are reviews. Six new machines a day stretch it to about two years.
 
 | Mechanic | Learning purpose |
 |---|---|
@@ -212,7 +239,8 @@ map is computed from the save, nothing else is stored.
 | HQ floors, stars on the HQ roof, clock post | HQ upgrades, master's certificates, piecework clock |
 | Tool shed (three sizes), combo press, containers, oil barrels | Toolbox, combo press, warehouse and machine oil upgrades |
 | Stars on hall signs, belt speed | Hall expansions and conveyors; rust slows a hall's belts down |
-| Buildings below the HQ, fenced plot with a price | Buildings you bought (with steam, a freight train, race cars, a helicopter …) and the next one to save for |
+| Buildings below the HQ, fenced plot with a price | Buildings you bought, bigger with every level and gold at level 4 (steam, turbines, a freight train, a car carrier ship, race cars, a plane, a rocket …), and the next one to save for |
+| Flags along the road in front of the HQ | Germany, then one per export market |
 
 Machines keep their place: they are ordered by the time you unlocked them, so new ones
 appear at the end of a hall. Words share racks (nine crates per rack; a big Anki import

@@ -19,10 +19,11 @@ import { CoachNote } from "./ShiftView";
 const HALL_ORDER: HallId[] = ["satzbau", "woerter", "verben", "faelle", "redemittel"];
 
 function Machine({ it, card, s, onOpen }: { it: Item; card: CardState; s: GameState; onOpen: () => void }) {
+  const catalog = useCatalog();
   const now = Date.now();
   const stage = stageOf(card);
   const rust = rustOf(card, now);
-  const rate = machineRate(s, it, card, now);
+  const rate = machineRate(s, it, card, now, catalog);
   const cls = stage === 0 ? "blueprint" : stage === 5 ? "gold" : rust > 0 ? "rusty" : "";
   const status =
     stage === 0

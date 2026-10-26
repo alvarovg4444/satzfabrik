@@ -78,7 +78,9 @@ function describe(st: Station, catalog: Catalog): string {
 
 function describeBuilding(b: Building): string {
   const def = UPGRADE_BY_ID.get(b.id)!;
-  return b.built ? `${def.de}: ${def.effect}` : `Bauplatz: ${def.de} für ${fmt(b.price)} Taler (${def.effect})`;
+  if (!b.built) return `Bauplatz: ${def.de} für ${fmt(b.price)} Taler (${def.effect})`;
+  const stage = b.level >= def.max ? "Gold-Version" : `Stufe ${b.level} von ${def.max}`;
+  return `${def.de}, ${stage}: ${def.effect}`;
 }
 
 export function FactoryMap({
@@ -210,7 +212,7 @@ export function FactoryMap({
       }
       case "hq":
         toast(
-          `Zentrale, Level ${lvl}: ${s.streak.current} Tage Streak, ${fmt(s.stats.sentences)} Sätze gebaut. Ein Stockwerk mehr gibt es im Laden (Verwaltung aufstocken), einen Stern auf dem Dach für jeden Meisterbrief.`,
+          `Zentrale, Level ${lvl}: ${s.streak.current} Tage Streak, ${fmt(s.stats.sentences)} Sätze gebaut. Im Laden gibt es Stockwerke (Verwaltung aufstocken), Sterne aufs Dach (Meisterbrief) und Flaggen davor (Exportmärkte).`,
           5500,
         );
         break;

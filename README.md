@@ -29,17 +29,21 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
 - **Speed drills (Akkord).** 60-second rounds on articles, plurals, Perfekt, Präteritum,
   prepositions + case, Wo/Wohin, pronouns, possessives and adjective endings, built from
   your own machines. They need no AI.
-- **Idle-game loop.** Each sentence pays Taler (1 at the start), and Taler build the factory,
-  never your vocabulary: a toolbox that adds a Taler per sentence, workers, forklifts and
-  trucks that produce while the app is closed, multipliers, and eight big buildings. Plus
-  offline earnings with a storage cap, rust, daily orders and a chest, streaks, a combo
-  multiplier, levels and achievements.
+- **Idle-game loop for two years.** Each sentence pays Taler (1 at the start), and Taler build
+  the factory, never your vocabulary: a toolbox that adds a Taler per sentence, workers,
+  forklifts and trucks that produce while the app is closed, multipliers, export markets, and
+  20 buildings with four levels each, from a filling station to a rocket launch pad. Prices
+  are calibrated with a two-year simulation: a learner who practises most days still has
+  things to build after two years. Plus offline earnings with a storage cap, rust, daily
+  orders and a chest, streaks, a combo multiplier, levels and achievements.
 - **A pixel-art car factory.** The Fabrik tab draws your progress as a GBA-style map: welding
   robots, word racks, forging presses, paint booths and craft benches, one per item you own.
   Rusty machines show a "!" bubble, gold ones sparkle, and every sentence you write today
-  parks a new car outside. Everything you buy appears too: a worker in a yellow helmet per
-  hire, forklifts, your own car transporters on the road, HQ floors, and buildings from a
-  canteen to a test track and a helicopter pad. Tap anything to see what it is.
+  parks a new car outside. Everything you buy appears too: workers in yellow helmets,
+  forklifts, your own car transporters on the road, HQ floors, a flag per export market, and
+  buildings that grow with every level: wind turbines turn, a freight train and a car carrier
+  ship come and go, race cars lap the test track, a plane takes off and, at the very end, a
+  rocket launches. Tap anything to see what it is.
 
 ## Run it
 
@@ -75,6 +79,7 @@ In **Settings → KI-Korrektor**, pick one of:
 npm test           # unit tests: scheduling, drills, importer, economy, content QA
 npm run typecheck
 npm run sim        # prints a 60-day economy simulation (pacing of rewards and reviews)
+npm run sim:long   # two years for a light, typical and heavy learner (about a minute)
 ```
 
 Code map:
@@ -93,7 +98,7 @@ Code map:
   changes in `actions.ts`.
 - `src/store/`: the store, plus local and claude.ai cloud persistence.
 - `src/pixel/`: the factory map. `layout.ts` turns the save into positions (pure, tested),
-  `sprites.ts`, `machines.ts` and `campus.ts` (buildings and yard) hold the pixel art,
+  `sprites.ts`, `machines.ts`, `campus.ts` and `campus2.ts` (buildings and yard) hold the pixel art,
   `scene.ts` draws and animates it.
 - `src/ui/`: React screens.
 - `dev/`: sprite and scene preview pages for the pixel art (`npm run dev`, then open
