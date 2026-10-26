@@ -65,7 +65,8 @@ describe("built-in situations vary", () => {
     const pick = (salt: string) => taskForItem(it0, card, catalog, T0, "new", salt).scenario?.de;
     expect(pick("a")).toBe(pick("a"));
     const picks = new Set(["g1|0", "g2|0", "g3|0", "g1|1", "g1|2", "g4|0", "g5|0", "g6|0"].map(pick));
-    expect(picks.size).toBeGreaterThan(2);
+    // the word has two situations of its own: different games and shifts get both
+    expect(picks.size).toBe(2);
   });
 
   it("a new game's first shift is planned with its own salt", () => {

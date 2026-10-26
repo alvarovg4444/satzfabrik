@@ -50,7 +50,7 @@ export interface Catalog {
 }
 
 /** Two situations per item, written for that item: [[de, en], [de, en]] by id. */
-const OWN = ITEM_SITUATIONS as Record<string, [string, string][]>;
+const OWN = ITEM_SITUATIONS as unknown as Record<string, [string, string][]>;
 const ownCache = new Map<string, Scenario[]>();
 function situationsOf(id: string): Scenario[] {
   let list = ownCache.get(id);

@@ -128,10 +128,11 @@ really contains its word, so the "missing word" check works on real answers.
 
 ### Situations and sentences
 
-Built in are 90 everyday situations (6 per topic, picked by the word's topic), three
-translation sentences and two rewrites per grammar structure, and one example per word. That
-is enough to work without AI, but not per word: the 448 work words share six situations.
-So the AI writes the variety:
+Built in are two situations written for each of the 4,030 words and structures
+(`src/content/item-situations.json`: simple German with English, about the learner's life
+in Austria, without the target word in the text), 90 general situations by topic for
+imported words, three translation sentences and two rewrites per grammar structure, and one
+example per word. That works fully offline. On top, the AI writes more variety:
 
 - **Ahead of time.** When the app opens and after every shift, the AI writes two situations
   for each of the next shift's words (and new translation sentences for its structures),
