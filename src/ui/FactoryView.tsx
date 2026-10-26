@@ -2,7 +2,9 @@ import { useState } from "react";
 import type { Catalog } from "../content/catalog";
 import { HALLS, type HallId, type Item } from "../content/types";
 import { dueInDays, isDue, rustOf, stageOf, type CardState } from "../engine/srs";
+import { levelLabel, overall } from "../engine/level";
 import { shortName } from "../engine/tasks";
+import { dayKey } from "../engine/text";
 import { chestReady, claimChest, hallUnlocked } from "../game/actions";
 import { factoryRate, fmt, levelOf, machineRate, storageHours } from "../game/economy";
 import { orderText } from "../game/orders";
@@ -130,20 +132,22 @@ function saveView(v: View): void {
   }
 }
 
-/** The words stored in one rack of the warehouse map. */
+/** The items behind one spot on the map: a rack of words, or a machine that stands for several. */
 function RackSheet({ items, onClose, onOpen }: { items: Item[]; onClose: () => void; onOpen: (it: Item) => void }) {
   const s = useGame();
   const due = items.filter((it) => s.cards[it.id] && isDue(s.cards[it.id], Date.now())).length;
+  const hall = items[0] ? HALLS[items[0].hall].de : "";
+  const rack = items[0]?.hall === "woerter";
   return (
-    <Sheet onClose={onClose} label="Regal im Wortlager">
+    <Sheet onClose={onClose} label={rack ? "Regal im Wortlager" : `Maschinengruppe in der ${hall}`}>
       <div className="spread">
-        <span className="eyebrow">Wortlager · Regal</span>
+        <span className="eyebrow">{rack ? "Wortlager · Regal" : `${hall} · Maschinengruppe`}</span>
         <button type="button" className="btn ghost small" onClick={onClose}>
           Schließen
         </button>
       </div>
       <h2>
-        {items.length} {items.length === 1 ? "Wort" : "Wörter"}
+        {items.length} {rack ? (items.length === 1 ? "Wort" : "Wörter") : "Maschinen"}
         {due ? `, ${due} rosten` : ""}
       </h2>
       <div className="machines">
@@ -191,6 +195,7 @@ export function FactoryView({
   const blueprints = cards.length - built;
   const rate = factoryRate(s, catalog, now);
   const lvl = levelOf(s.xp);
+  const delivery = s.delivery?.day === dayKey(now) ? s.delivery : null;
 
   return (
     <>
@@ -202,6 +207,12 @@ export function FactoryView({
           <div className="big">{fmt(rate)} Taler/h</div>
           <p className="muted small">
             Läuft auch, wenn die App zu ist: bis zu {storageHours(s)} Stunden, dann ist das Lager voll.
+          </p>
+          <p className="small">
+            Dein Niveau: <b>{levelLabel(overall(s.level).theta).code}</b>
+            {delivery
+              ? ` · heute geliefert: ${delivery.ids.length} neue Baupläne${delivery.paid ? ` (${delivery.free} gratis, Rest für ${fmt(delivery.paid)} Taler)` : ""}`
+              : ""}
           </p>
         </div>
         <div className="stat-grid">

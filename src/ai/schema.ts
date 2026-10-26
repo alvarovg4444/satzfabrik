@@ -29,9 +29,13 @@ export const GradeSchema = z.object({
   ),
   praise: z.string(),
   tip: z.string(),
+  /** CEFR level this answer shows (complexity and accuracy together): feeds the level engine. */
+  level: z.enum(["A1", "A2", "B1", "B2", "C1"]),
 });
 
-export type GradeOutput = z.infer<typeof GradeSchema>;
+export type Cefr = z.infer<typeof GradeSchema>["level"];
+/** The level is only there when an AI read the sentence (not for exact matches or self-checks). */
+export type GradeOutput = Omit<z.infer<typeof GradeSchema>, "level"> & { level?: Cefr };
 
 export type GradeSource = "ai" | "exact" | "self";
 
@@ -96,6 +100,8 @@ export function coerceGrade(
       explain: str(e.explain),
     }))
     .filter((e) => e.wrong || e.right || e.explain);
+  const levelRaw = str(o.level).toUpperCase();
+  const level = (["A1", "A2", "B1", "B2", "C1"] as const).find((l) => l === levelRaw);
   return {
     targets,
     quality,
@@ -104,6 +110,7 @@ export function coerceGrade(
     errors,
     praise: str(o.praise),
     tip: str(o.tip),
+    ...(level ? { level } : {}),
   };
 }
 

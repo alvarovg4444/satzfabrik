@@ -18,6 +18,8 @@ export const BUILTIN_ITEMS: Item[] = [
   ...EXPRESSIONS,
 ];
 
+const BUILTIN_IDS = new Set(BUILTIN_ITEMS.map((i) => i.id));
+
 export const GRAMMAR: GramItem[] = [...GRAMMAR_SATZBAU, ...GRAMMAR_VERBEN, ...GRAMMAR_FAELLE];
 
 export { SCENARIOS };
@@ -39,7 +41,7 @@ for (const s of SCENARIOS) {
 
 /** Built-in curriculum plus the learner's imported items. */
 export function makeCatalog(custom: Item[]): Catalog {
-  const items = [...BUILTIN_ITEMS, ...custom.filter((c) => !BUILTIN_ITEMS.some((b) => b.id === c.id))];
+  const items = [...BUILTIN_ITEMS, ...custom.filter((c) => !BUILTIN_IDS.has(c.id))];
   const byId = new Map(items.map((i) => [i.id, i] as const));
   const byHall = new Map<HallId, Item[]>();
   for (const it of items) {

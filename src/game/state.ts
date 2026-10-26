@@ -1,6 +1,7 @@
 import type { ExplainLang } from "../ai/prompts";
 import type { AISettings } from "../ai/providers";
 import type { ErrorType, Item } from "../content/types";
+import { newLevelState, type LevelState } from "../engine/level";
 import type { CardState } from "../engine/srs";
 import type { TaskType } from "../engine/tasks";
 import type { Order } from "./orders";
@@ -16,6 +17,10 @@ export interface Settings {
   dailyGoal: number;
   /** At most this many new machines are built per day (like Anki's new cards per day). */
   newPerDay: number;
+  /** The level engine delivers that many fitting blueprints every day, free. */
+  autoDeliver: boolean;
+  /** Mix A1 basics back into shifts now and then. */
+  refresh: boolean;
   shiftSize: number;
   sound: boolean;
   /** Read corrected sentences aloud automatically. */
@@ -86,6 +91,10 @@ export interface GameState {
   achievements: Record<string, number>;
   journal: JournalEntry[];
   settings: Settings;
+  /** The learner's estimated CEFR level, from their own answers. */
+  level: LevelState;
+  /** Blueprints the level engine delivered today: how many were free, what the rest cost. */
+  delivery?: { day: string; ids: string[]; free: number; paid: number };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -94,6 +103,8 @@ export const DEFAULT_SETTINGS: Settings = {
   careful: false,
   dailyGoal: 20,
   newPerDay: 10,
+  autoDeliver: true,
+  refresh: true,
   shiftSize: 10,
   sound: true,
   autoSpeak: false,
@@ -133,6 +144,7 @@ export function newGame(now: number): GameState {
     achievements: {},
     journal: [],
     settings: structuredClone(DEFAULT_SETTINGS),
+    level: newLevelState(),
   };
 }
 
@@ -156,6 +168,9 @@ export function migrate(raw: unknown, now: number): GameState {
       ...(s.settings ?? {}),
       ai: { ...base.settings.ai, ...(s.settings?.ai ?? {}) },
     },
+    level: s.level
+      ? { ...base.level, ...s.level, areas: { ...base.level.areas, ...(s.level.areas ?? {}) }, ai: { ...base.level.ai, ...(s.level.ai ?? {}) } }
+      : base.level,
     v: 1,
   };
 }

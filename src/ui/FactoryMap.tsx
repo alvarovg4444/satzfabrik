@@ -64,9 +64,10 @@ function stationItems(st: Station, catalog: Catalog): Item[] {
 }
 
 function describe(st: Station, catalog: Catalog): string {
-  if (st.kind === "rack") {
+  if (st.kind === "rack" || st.items.length > 1) {
     const due = st.items.filter((i) => i.due).length;
-    return `Regal mit ${st.items.length} Wörtern${due ? ` · ${due} rosten` : ""}`;
+    const what = st.kind === "rack" ? `Regal mit ${st.items.length} Wörtern` : `${st.items.length} Maschinen`;
+    return `${what}${due ? ` · ${due} rosten` : ""}`;
   }
   const it = catalog.get(st.items[0].id);
   const name = it ? shortName(it) : st.items[0].id;
@@ -178,7 +179,7 @@ export function FactoryMap({
     switch (hit.kind) {
       case "station": {
         const items = stationItems(hit.station!, catalog);
-        if (hit.station!.kind === "rack") onOpenRack(items);
+        if (hit.station!.kind === "rack" || items.length > 1) onOpenRack(items);
         else if (items[0]) onOpen(items[0]);
         break;
       }

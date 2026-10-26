@@ -1,21 +1,27 @@
 import { useState } from "react";
-import { TOPICS, type TopicId } from "../content/types";
+import { TOPICS, type Level, type TopicId } from "../content/types";
+import { newLevelState } from "../engine/level";
 import { grantStarter, rollover } from "../game/actions";
 import { DEFAULT_TOPICS, starterItems } from "../game/starter";
 import { store, useCatalog, useMeta } from "../store/store";
 import { Icon } from "./common";
+
+const START: Record<Level, number> = { A1: 1.6, A2: 2.3, B1: 3.0, B2: 3.6 };
 
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const catalog = useCatalog();
   const meta = useMeta();
   const [step, setStep] = useState(0);
   const [topics, setTopics] = useState<TopicId[]>(DEFAULT_TOPICS);
+  const [level, setLevel] = useState<Level>("A2");
 
   const toggle = (t: TopicId) => setTopics((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t].slice(-4)));
 
   const finish = () => {
     const items = starterItems(catalog, topics.length ? topics : DEFAULT_TOPICS);
     store.update((d, c) => {
+      // A rough self-assessment is only the starting point; the level engine corrects it from the answers.
+      d.level = newLevelState(START[level]);
       grantStarter(d, items, Date.now());
       d.onboarded = true;
       rollover(d, c, Date.now());
@@ -36,7 +42,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <b>Bauen:</b> Eine Maschine läuft erst, wenn du einen eigenen, richtigen Satz damit schreibst.
               </li>
               <li>
-                <b>Produzieren:</b> Laufende Maschinen verdienen Taler, auch wenn die App zu ist. Mit Talern kaufst du neue Baupläne.
+                <b>Produzieren:</b> Laufende Maschinen verdienen Taler, auch wenn die App zu ist. Jeden Tag kommen neue Baupläne passend
+                zu deinem Niveau, mit Talern holst du dir mehr und baust die Fabrik aus.
               </li>
               <li>
                 <b>Warten:</b> Wenn du ein Wort bald vergessen würdest, rostet die Maschine. Benutze es in einem neuen Satz, dann läuft
@@ -65,6 +72,15 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 </button>
               ))}
             </div>
+            <h3>Dein Niveau ungefähr</h3>
+            <div className="seg" role="group" aria-label="Niveau">
+              {(["A1", "A2", "B1", "B2"] as Level[]).map((l) => (
+                <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <p className="small muted">Nur ein Startwert: die Fabrik schätzt dein Niveau danach aus deinen Antworten.</p>
             <button type="button" className="btn primary block" disabled={!topics.length} onClick={() => setStep(2)}>
               Weiter <Icon name="arrow" size={18} />
             </button>

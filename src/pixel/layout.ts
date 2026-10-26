@@ -31,7 +31,7 @@ export interface StationItem {
 export interface Station extends Rect {
   kind: StationKind;
   hall: HallId;
-  /** One item, or up to RACK_SLOTS × per-crate items for a rack. */
+  /** One item, or several when the hall is packed (a rack holds RACK_SLOTS crates). */
   items: StationItem[];
   look: Look;
   due: boolean;
@@ -107,8 +107,12 @@ export const STATION: Record<StationKind, { w: number; h: number; gap: number; a
 };
 
 export const RACK_SLOTS = 9;
-/** Above this many racks, one crate stands for several words. */
-const MAX_RACK_ROWS = 8;
+/**
+ * Rows a hall may use per machine type. Beyond that, one machine stands for several
+ * items (a crate for several words, a press for several verbs), so even a factory with
+ * every item of the curriculum stays a few screens long.
+ */
+const MAX_ROWS: Record<StationKind, number> = { robot: 6, rack: 8, press: 8, bigpress: 3, booth: 4, bench: 6 };
 
 export const HALL_ORDER: HallId[] = ["satzbau", "woerter", "verben", "faelle", "redemittel"];
 
@@ -192,7 +196,8 @@ export function mapInput(s: GameState, catalog: Catalog, now: number, width: num
 // --- layout ---------------------------------------------------------------------
 
 const TREE_BAND = 14;
-const ROAD_H = 18;
+/** Two lanes of 14 px (trucks and cars), a centre line and curbs. */
+const ROAD_H = 34;
 const WALK_H = 12;
 const WALL = 3;
 const BACK = 18;
@@ -361,14 +366,10 @@ function layoutHall(
   for (const k of order) {
     const list = byKind.get(k);
     if (!list) continue;
-    if (k === "rack") {
-      const perRow = Math.max(1, Math.floor((cw + STATION.rack.gap) / (STATION.rack.w + STATION.rack.gap)));
-      const maxCrates = perRow * MAX_RACK_ROWS * RACK_SLOTS;
-      const per = Math.max(1, Math.ceil(list.length / maxCrates));
-      for (let i = 0; i < list.length; i += RACK_SLOTS * per) specs.push({ kind: k, items: list.slice(i, i + RACK_SLOTS * per) });
-    } else {
-      for (const it of list) specs.push({ kind: k, items: [it] });
-    }
+    const perRow = Math.max(1, Math.floor((cw + STATION[k].gap) / (STATION[k].w + STATION[k].gap)));
+    const slots = k === "rack" ? RACK_SLOTS : 1;
+    const per = Math.max(1, Math.ceil(list.length / (perRow * MAX_ROWS[k] * slots)));
+    for (let i = 0; i < list.length; i += slots * per) specs.push({ kind: k, items: list.slice(i, i + slots * per) });
   }
   const mainKind: StationKind = specs[specs.length - 1]?.kind ?? stationKind(h.id, h.id === "verben" ? "verb" : h.id === "redemittel" ? "expr" : h.id === "woerter" ? "noun" : "gram");
 
@@ -386,7 +387,8 @@ function layoutHall(
     while (i < specs.length && specs[i].kind === kind && col < perRow) {
       const sp = specs[i];
       const due = sp.items.some((x) => x.due);
-      const single = sp.items[0];
+      // A machine that stands for several items looks like the weakest of them.
+      const single = sp.items.reduce((a, b) => (b.stage < a.stage ? b : a), sp.items[0]);
       const s: Station = {
         kind,
         hall: h.id,

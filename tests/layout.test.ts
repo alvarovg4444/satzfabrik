@@ -119,3 +119,14 @@ describe("map input from a save", () => {
     expect(scene.stations.filter((st) => st.hall === "woerter").length).toBe(1);
   });
 });
+
+describe("a very big factory", () => {
+  it("packs several verbs per press so the hall stays bounded", () => {
+    const verbs = items(650, "verb", "vv");
+    const scene = layout(input(214, { verben: verbs }));
+    const presses = scene.stations.filter((s) => s.kind === "press");
+    expect(presses.reduce((n, p) => n + p.items.length, 0)).toBe(650);
+    expect(new Set(presses.map((p) => p.y)).size).toBeLessThanOrEqual(8);
+    expect(presses.some((p) => p.items.length > 1)).toBe(true);
+  });
+});

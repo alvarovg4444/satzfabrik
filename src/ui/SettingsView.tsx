@@ -207,6 +207,14 @@ function LearnSection() {
           </select>
         </div>
       </div>
+      <label className="toggle" htmlFor="deliver">
+        <span>Neue Baupläne automatisch liefern (jeden Tag passend zu deinem Niveau)</span>
+        <input id="deliver" type="checkbox" checked={s.settings.autoDeliver} onChange={(e) => patchSettings({ autoDeliver: e.target.checked })} />
+      </label>
+      <label className="toggle" htmlFor="refresh">
+        <span>A1-Grundlagen ab und zu auffrischen</span>
+        <input id="refresh" type="checkbox" checked={s.settings.refresh} onChange={(e) => patchSettings({ refresh: e.target.checked })} />
+      </label>
       <label className="toggle" htmlFor="english">
         <span>Englische Übersetzung der Situationen zeigen</span>
         <input id="english" type="checkbox" checked={s.settings.showEnglish} onChange={(e) => patchSettings({ showEnglish: e.target.checked })} />

@@ -12,11 +12,11 @@ export async function gradeAnswer(
   task: Task,
   answer: string,
   catalog: Catalog,
-  opts: { lang: ExplainLang; careful: boolean; signal?: AbortSignal },
+  opts: { lang: ExplainLang; careful: boolean; signal?: AbortSignal; level?: string },
 ): Promise<GradeResult> {
   if (task.reference && sameSentence(answer, task.reference)) return exactMatch(task, answer);
   if (provider.id === "offline") throw new AIError("No corrector configured.", "no_access");
-  const raw = await provider.json(gradePrompt(task, answer, catalog, opts.lang), "grade", {
+  const raw = await provider.json(gradePrompt(task, answer, catalog, opts.lang, opts.level), "grade", {
     careful: opts.careful,
     signal: opts.signal,
   });
@@ -71,10 +71,10 @@ export async function checkRework(
   first: GradeResult,
   attempt: string,
   catalog: Catalog,
-  opts: { lang: ExplainLang; signal?: AbortSignal },
+  opts: { lang: ExplainLang; signal?: AbortSignal; level?: string },
 ): Promise<GradeResult | "match"> {
   if (sameSentence(attempt, first.corrected) || (first.better && sameSentence(attempt, first.better))) return "match";
-  return gradeAnswer(provider, task, attempt, catalog, { lang: opts.lang, careful: false, signal: opts.signal });
+  return gradeAnswer(provider, task, attempt, catalog, { lang: opts.lang, careful: false, signal: opts.signal, level: opts.level });
 }
 
 const INSPIRATION = [
@@ -107,6 +107,7 @@ export async function freshenTasks(
   tasks: Task[],
   catalog: Catalog,
   signal?: AbortSignal,
+  level?: string,
 ): Promise<Map<string, Partial<Task>>> {
   const out = new Map<string, Partial<Task>>();
   if (provider.id === "offline") return out;
@@ -122,7 +123,7 @@ export async function freshenTasks(
   if (!reqs.length) return out;
   const seed = Math.floor(Math.random() * INSPIRATION.length);
   const words = [0, 5, 11].map((d) => INSPIRATION[(seed + d) % INSPIRATION.length]);
-  const raw = await provider.json(genPrompt(reqs, catalog, words), "gen", { signal });
+  const raw = await provider.json(genPrompt(reqs, catalog, words, level), "gen", { signal });
   for (const g of coerceGen(raw).tasks) {
     const key = keyFor.get(g.key);
     if (!key || !g.scenario_de) continue;

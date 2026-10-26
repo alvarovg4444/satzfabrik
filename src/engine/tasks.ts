@@ -1,6 +1,6 @@
 import type { Catalog } from "../content/catalog";
 import type { GramItem, Item, Scenario } from "../content/types";
-import { isDue, rustOf, stageOf, type CardState } from "./srs";
+import { isDue, newCard, rustOf, stageOf, type CardState } from "./srs";
 import { dayKey, hash, pick, rng, withoutArticle } from "./text";
 
 export type TaskType = "intro" | "produce" | "translate" | "transform" | "combo";
@@ -31,7 +31,7 @@ export interface Task {
   /** Soft goal shown as a word counter. */
   minWords?: number;
   /** Why this task is in the shift. */
-  reason: "new" | "due" | "weak" | "practice";
+  reason: "new" | "due" | "weak" | "practice" | "refresh";
 }
 
 const DE_TYPE: Record<Exclude<TaskType, "intro">, { de: string; en: string }> = {
@@ -216,6 +216,22 @@ export interface ShiftInput {
   /** Also include items that are not due yet (extra practice). */
   extra?: boolean;
   maxNew?: number;
+  /** A1 basics to check again; the learner has no machine for them yet. */
+  refresh?: Item[];
+}
+
+/**
+ * A basics check: only the meaning is shown (a word) or an English sentence to
+ * translate (a structure), so the learner has to recall the German themselves.
+ */
+export function refreshTask(it: Item, now: number, catalog: Catalog): Task {
+  const card = newCard(it.id, now);
+  if (it.kind === "gram") {
+    const t = translateTask(it, card, hash(`${it.id}|${dayKey(now)}`), "refresh");
+    return { ...t, key: `${it.id}:refresh`, cues: [cueFor(it, 3)] };
+  }
+  const t = taskForItem(it, card, catalog, now, "refresh");
+  return { ...t, key: `${it.id}:refresh`, cues: [cueFor(it, 3)], minWords: 4 };
 }
 
 /**
@@ -301,6 +317,9 @@ export function buildShift(input: ShiftInput): Task[] {
 
   // Interleave: alternate new blocks with maintenance so the shift never feels like a wall.
   const maintenance = interleave([...singles, ...practice], combos);
+  (input.refresh ?? [])
+    .filter((it) => !used.has(it.id) && !cards[it.id])
+    .forEach((it, i) => maintenance.splice(Math.min(maintenance.length, 2 + i * 4), 0, refreshTask(it, now, catalog)));
   const r = rng(hash(dayKey(now) + owned.length));
   let fi = 0;
   let mi = 0;

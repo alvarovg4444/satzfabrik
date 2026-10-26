@@ -176,13 +176,22 @@ function drawGrass(c: Ctx, w: number, h: number): void {
   }
 }
 
+/** Two lanes, right-hand traffic: the upper lane runs left, the lower lane runs right. */
+export const LANES = [
+  { dy: 2, left: true },
+  { dy: 18, left: false },
+] as const;
+
 function drawRoad(c: Ctx, r: Rect): void {
   rect(c, r.x, r.y, r.w, 2, G.curb);
   rect(c, r.x, r.y + 1, r.w, 1, "#9aa0aa");
   rect(c, r.x, r.y + 2, r.w, r.h - 4, G.road);
   for (let x = 0; x < r.w; x += 3) if (noise(x, r.y, 5) < 0.3) px(c, x, r.y + 3 + Math.floor(noise(x, r.y, 6) * (r.h - 6)), G.roadLo);
-  const mid = r.y + Math.floor(r.h / 2) - 1;
-  for (let x = 2; x < r.w; x += 10) rect(c, x, mid, 6, 1, G.line);
+  // edge lines and the dashed centre line between the lanes
+  rect(c, r.x, r.y + 3, r.w, 1, "#8a8e98");
+  rect(c, r.x, r.y + r.h - 4, r.w, 1, "#8a8e98");
+  const mid = r.y + 16;
+  for (let x = 2; x < r.w; x += 10) rect(c, x, mid, 6, 2, G.line);
   rect(c, r.x, r.y + r.h - 2, r.w, 2, G.curb);
   rect(c, r.x, r.y + r.h - 2, r.w, 1, "#e0e4ea");
 }
@@ -551,6 +560,16 @@ function drawMarkers(c: Ctx, s: FactoryScene, t: number, top: number, bottom: nu
   }
 }
 
+/** "×4" on machines that stand for several items. */
+function countBadge(c: Ctx, st: Station): void {
+  const label = `×${st.items.length}`;
+  const w = textWidth(label) + 3;
+  const x = st.x + st.w - w;
+  const y = st.y + st.h - 7;
+  rect(c, x, y, w, 7, C.ink);
+  text(c, label, x + 2, y + 1, C.white);
+}
+
 function drawStation(c: Ctx, st: Station, t: number): void {
   const working = st.look === "work" || st.look === "gold";
   const speed = st.look === "gold" ? 2.6 : 1.8;
@@ -582,6 +601,7 @@ function drawStation(c: Ctx, st: Station, t: number): void {
       c.drawImage(rack(st.items), st.x, st.y);
       break;
   }
+  if (st.kind !== "rack" && st.items.length > 1) countBadge(c, st);
 }
 
 function sparks(c: Ctx, x: number, y: number, t: number, n: number): void {
@@ -604,21 +624,24 @@ function mist(c: Ctx, x: number, y: number, t: number, n: number): void {
   }
 }
 
+/** One vehicle per lane at a time, so nothing ever meets head-on or overlaps. */
 function drawTrucks(c: Ctx, s: FactoryScene, t: number): void {
   s.roads.forEach((r, ri) => {
-    const lanes = [
-      { y: r.y + 2, left: true },
-      { y: r.y + r.h - 16, left: false },
-    ];
-    lanes.forEach((lane, li) => {
-      const period = 11 + ri * 3 + li * 5;
-      const len = s.w + 60;
-      const p = ((t + ri * 4 + li * 7) % period) / period;
-      const dist = p * len * 1.6;
+    LANES.forEach((lane, li) => {
+      const period = 9 + ri * 3 + li * 4;
+      const clock = t + ri * 4 + li * 7;
+      const k = Math.floor(clock / period);
+      const p = (clock % period) / period;
+      const truck = k % 3 === 0;
+      const len = s.w + (truck ? 56 : 20);
+      const dist = p * len * (truck ? 1.5 : 2.2);
       if (dist > len) return;
-      const x = lane.left ? Math.round(s.w - dist) : Math.round(dist - 52);
-      const load = (ri + li) % 2 ? [1, 5] : [0, 2];
-      c.drawImage(SPR.truck(7 - li * 6, lane.left, load), x, lane.y);
+      const w = truck ? 52 : 16;
+      const x = lane.left ? Math.round(s.w - dist) : Math.round(dist - w);
+      const spr = truck
+        ? SPR.truck(7 - li * 6, lane.left, (ri + li + k) % 2 ? [1, 5] : [0, 2])
+        : SPR.car((k * 3 + li * 5 + ri) % 10, lane.left ? "left" : "right");
+      c.drawImage(spr, x, r.y + lane.dy + (truck ? 0 : 1));
     });
   });
 }

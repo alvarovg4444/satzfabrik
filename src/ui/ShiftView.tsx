@@ -6,7 +6,8 @@ import { ERROR_TYPES, type Item } from "../content/types";
 import { isDue, stageOf } from "../engine/srs";
 import { buildShift, introTask, shortName, taskForItem, taskTitle, type Task } from "../engine/tasks";
 import { dayKey, diffWords, mentions, wordCount } from "../engine/text";
-import { applyGrade, applyRework, finishShift, weakRules, type TaskEvents } from "../game/actions";
+import { refreshCount, refreshers, levelLabel, overall } from "../engine/level";
+import { applyGrade, applyRework, deliver, finishShift, hallUnlocked, newLeftToday, weakRules, type TaskEvents } from "../game/actions";
 import { fmt } from "../game/economy";
 import { orderText } from "../game/orders";
 import type { GameState } from "../game/state";
@@ -21,22 +22,23 @@ interface Summary {
   perfect: number;
   taler: number;
   built: string[];
+  confirmed: string[];
   repaired: string[];
   stageUps: number;
   errors: Record<string, number>;
 }
 
-const emptySummary = (): Summary => ({ done: 0, good: 0, perfect: 0, taler: 0, built: [], repaired: [], stageUps: 0, errors: {} });
+const emptySummary = (): Summary => ({ done: 0, good: 0, perfect: 0, taler: 0, built: [], confirmed: [], repaired: [], stageUps: 0, errors: {} });
+
+/** The learner's current level for the AI prompts, e.g. "A2+". */
+function levelCode(s: GameState): string {
+  return levelLabel(overall(s.level).theta).code;
+}
 
 /** Game state and shift summary from before a grade was applied, so "Einspruch" can undo it. */
 interface Snapshot {
   state: GameState;
   summary: Summary;
-}
-
-/** New machines the learner may still build today. */
-function newLeftToday(s: GameState, now: number): number {
-  return Math.max(0, s.settings.newPerDay - (s.stats.days[dayKey(now)]?.built ?? 0));
 }
 
 /** Answer text recorded when the learner taps "Weiß ich nicht". */
@@ -69,6 +71,10 @@ function celebrate(events: TaskEvents, grade: GradeResult, anchor: HTMLElement |
   for (const id of events.built) {
     const it = catalog.get(id);
     if (it) toast(<span>Neue Maschine läuft: <b>{shortName(it)}</b></span>);
+  }
+  for (const id of events.confirmed) {
+    const it = catalog.get(id);
+    if (it) toast(<span>Grundlage sitzt: <b>{shortName(it)}</b> läuft sofort</span>);
   }
   for (const up of events.stageUps) {
     const it = catalog.get(up.id);
@@ -135,6 +141,7 @@ function TaskHeader({ task, index, total, onEnd }: { task: Task; index: number; 
           {task.reason === "new" ? <span className="tag new">Neu</span> : null}
           {task.reason === "weak" ? <span className="tag due">Schwachstelle</span> : null}
           {task.reason === "practice" ? <span className="tag">Extra</span> : null}
+          {task.reason === "refresh" ? <span className="tag new">Grundlagen</span> : null}
         </span>
         <span className="row" style={{ gap: 8 }}>
           {s.combo > 1 ? <span className="combo">×{s.combo.toFixed(1)}</span> : null}
@@ -286,7 +293,7 @@ function Feedback({
     setReworkState("checking");
     ctlRef.current = new AbortController();
     try {
-      const res = await checkRework(meta.provider, task, grade, rework, catalog, { lang: s.settings.explainLang, signal: ctlRef.current.signal });
+      const res = await checkRework(meta.provider, task, grade, rework, catalog, { lang: s.settings.explainLang, signal: ctlRef.current.signal, level: levelCode(s) });
       const ok = res === "match" || (res.targets.every((t) => t.status === "correct" || t.status === "flawed") && res.quality !== "major" && res.errors.length === 0);
       if (ok) {
         const bonus = store.update((d) => applyRework(d, Date.now(), events.taler, rework.trim()));
@@ -579,8 +586,11 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
 
   const start = (extra: boolean, focus?: string[]) => {
     ctlRef.current?.abort();
-    const st = store.get();
     const now = Date.now();
+    // Top up today's delivery of blueprints before building the shift.
+    const delivered = store.update((d, c) => deliver(d, c, now));
+    if (delivered.length) toast(`Lieferung: ${delivered.length} neue Baupläne, passend zu deinem Niveau.`, 4000);
+    const st = store.get();
     const dueCount = Object.values(st.cards).filter((c) => isDue(c, now)).length;
     const size = st.settings.shiftSize;
     const newLeft = newLeftToday(st, now);
@@ -593,6 +603,12 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
         size,
         extra: asExtra,
         maxNew: Math.min(newLeft, Math.max(3, Math.min(6, size - dueCount))),
+        refresh: st.settings.refresh
+          ? refreshers(
+              { catalog, cards: st.cards, level: st.level, hallOpen: (h) => hallUnlocked(st, h), seed: `${dayKey(now)}|${st.stats.shifts}` },
+              refreshCount(st.level, size),
+            )
+          : [],
       });
     let list = focus?.length ? focusTasks(focus, now) : build(extra);
     if (!list.length && !focus?.length && !extra) {
@@ -614,7 +630,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
       genRef.current?.abort();
       const ctl = new AbortController();
       genRef.current = ctl;
-      freshenTasks(meta.provider, list, catalog, ctl.signal)
+      freshenTasks(meta.provider, list, catalog, ctl.signal, levelCode(store.get()))
         .then((updates) => {
           if (ctl.signal.aborted || !updates.size) return;
           // Only swap situations the learner has not reached yet, never the one on screen.
@@ -662,6 +678,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
         perfect: sm.perfect + (events.success && grade.quality === "perfect" ? 1 : 0),
         taler: sm.taler + events.taler,
         built: [...sm.built, ...events.built],
+        confirmed: [...sm.confirmed, ...events.confirmed],
         repaired: [...sm.repaired, ...events.repaired],
         stageUps: sm.stageUps + events.stageUps.length,
         errors,
@@ -677,7 +694,13 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
     if (!force) {
       const missing = task.targets.map((id) => catalog.get(id)).filter((it): it is Item => !!it && !mentions(text, it));
       if (missing.length) {
-        setWarn(`Ich finde ${missing.map((m) => `„${shortName(m)}“`).join(", ")} nicht in deinem Satz.`);
+        // When the cue only shows the meaning, naming the German word would give the answer away.
+        const hidden = missing.some((m) => task.cues.find((c) => c.itemId === m.id)?.label === m.en);
+        setWarn(
+          hidden
+            ? "Ich finde das gesuchte Wort nicht in deinem Satz."
+            : `Ich finde ${missing.map((m) => `„${shortName(m)}“`).join(", ")} nicht in deinem Satz.`,
+        );
         return;
       }
     }
@@ -691,6 +714,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
         lang: store.get().settings.explainLang,
         careful: careful ?? store.get().settings.careful,
         signal: ctl.signal,
+        level: levelCode(store.get()),
       });
       if (regradeOf) {
         // Undo the first verdict completely, then apply the careful one.
@@ -759,6 +783,18 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
             Neu gebaut:{" "}
             <b>
               {summary.built
+                .map((id) => catalog.get(id))
+                .filter((x): x is Item => !!x)
+                .map(shortName)
+                .join(", ")}
+            </b>
+          </p>
+        ) : null}
+        {summary.confirmed.length ? (
+          <p>
+            Grundlagen sitzen:{" "}
+            <b>
+              {summary.confirmed
                 .map((id) => catalog.get(id))
                 .filter((x): x is Item => !!x)
                 .map(shortName)

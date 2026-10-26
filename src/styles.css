@@ -575,6 +575,33 @@ textarea.input {
   color: color-mix(in srgb, var(--surface) 60%, transparent);
 }
 
+/* level estimate */
+.level-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 9rem) 1fr 2.6rem;
+  align-items: center;
+  gap: 10px;
+}
+.level-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--line);
+  overflow: hidden;
+}
+.level-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--signal);
+  border-right: 2px solid var(--ink);
+}
+.level-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: -6px;
+}
+
 /* pixel map of the factory: integer-scaled canvas, grass behind any rounding gap */
 .factory-map {
   --map-grass: #80cc60;

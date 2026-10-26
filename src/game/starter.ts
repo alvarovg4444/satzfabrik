@@ -6,13 +6,13 @@ export const DEFAULT_TOPICS: TopicId[] = ["arbeit", "wohnen", "alltag"];
 
 const LEVEL_RANK = { A1: 0, A2: 1, B1: 2, B2: 3 } as const;
 
-/** Starter pack: core connectors and the Perfekt, interleaved with words from the learner's own life. */
+/** Starter pack: core connectors and the Perfekt, interleaved with words from the learner's own life (A1 comes as refreshers). */
 export function starterItems(catalog: Catalog, topics: TopicId[]): Item[] {
   const grammar = STARTER_GRAMMAR.map((id) => catalog.get(id)).filter((x): x is Item => !!x);
   const words: Item[] = [];
   for (const t of topics) {
     const pool = catalog.items
-      .filter((it) => it.topic === t && !it.id.startsWith("c.") && (it.kind === "noun" || it.kind === "verb"))
+      .filter((it) => it.topic === t && it.level !== "A1" && !it.id.startsWith("c.") && (it.kind === "noun" || it.kind === "verb"))
       .sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level]);
     words.push(...pool.filter((i) => i.kind === "noun").slice(0, 3), ...pool.filter((i) => i.kind === "verb").slice(0, 1));
   }

@@ -3,6 +3,7 @@ import { ERROR_TYPES, type ErrorType, type Item } from "../content/types";
 import { STAGE_NAMES, stageOf } from "../engine/srs";
 import { shortName } from "../engine/tasks";
 import { dayKey } from "../engine/text";
+import { AREA_DE, AREAS, confidence, levelLabel, overall, type Skill } from "../engine/level";
 import { weakRules } from "../game/actions";
 import { fmt } from "../game/economy";
 import { ACHIEVEMENTS } from "../game/achievements";
@@ -17,6 +18,64 @@ function lastDays(n: number, now: number): string[] {
     out.push(dayKey(d.getTime()));
   }
   return out;
+}
+
+const BAND_START = 1;
+const BAND_END = 5;
+
+/** A bar from A1 to C1 with the estimate marked. */
+function LevelBar({ sk, label }: { sk: Skill; label: string }) {
+  const l = levelLabel(sk.theta);
+  const pct = ((Math.min(BAND_END, Math.max(BAND_START, sk.theta)) - BAND_START) / (BAND_END - BAND_START)) * 100;
+  return (
+    <div className="level-row">
+      <span className="small">{label}</span>
+      <div className="level-bar" aria-label={`${label}: ${l.code}`}>
+        <i style={{ width: `${pct}%` }} />
+      </div>
+      <b className="num small">{sk.n < 2 ? "?" : l.code}</b>
+    </div>
+  );
+}
+
+/** The level engine's estimate, overall and per area. */
+export function LevelCard() {
+  const s = useGame();
+  const o = overall(s.level);
+  const l = levelLabel(o.theta);
+  const conf = confidence(o.n);
+  return (
+    <section className="card stack" aria-label="Dein Niveau">
+      <div className="spread">
+        <h3>Dein Niveau</h3>
+        <span className="small muted">{conf}</span>
+      </div>
+      <div className="row" style={{ alignItems: "baseline", gap: 10 }}>
+        <span className="big num">{l.code}</span>
+        <span className="muted">
+          {l.next && l.frac >= 0.6 ? `auf dem Weg zu ${l.next}` : l.next ? `${Math.round(l.frac * 100)} % von ${l.band} geschafft` : "sehr gut"}
+        </span>
+      </div>
+      <div className="level-row" aria-hidden="true">
+        <span />
+        <div className="level-scale small muted">
+          <span>A1</span>
+          <span>A2</span>
+          <span>B1</span>
+          <span>B2</span>
+          <span>C1</span>
+        </div>
+        <span />
+      </div>
+      {AREAS.map((a) => (
+        <LevelBar key={a} sk={s.level.areas[a]} label={AREA_DE[a]} />
+      ))}
+      <p className="small muted">
+        Geschätzt aus deinen Antworten: Wenn du Bausteine eines Niveaus sicher benutzt, steigt der Wert, bei Fehlern sinkt er. Die
+        KI liest außerdem jeden Satz mit. Danach richten sich die täglichen Baupläne{s.level.basics >= 1 ? " und wie oft A1-Grundlagen wiederkommen" : ""}.
+      </p>
+    </section>
+  );
 }
 
 function Overview({ onPractice }: { onPractice: (id: string) => void }) {
@@ -43,6 +102,7 @@ function Overview({ onPractice }: { onPractice: (id: string) => void }) {
 
   return (
     <>
+      <LevelCard />
       <section className="card stack">
         <div className="stat-grid">
           <div className="stat">

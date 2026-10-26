@@ -1,6 +1,7 @@
 import type { GradeResult, TargetStatus } from "../ai/schema";
 import type { Catalog } from "../content/catalog";
-import { HALLS, type HallId, type Item, type TopicId } from "../content/types";
+import { HALLS, type ErrorType, type HallId, type Item, type TopicId } from "../content/types";
+import { decayBasics, noteBasics, observe, observeAi, recommend, seedFromHistory } from "../engine/level";
 import { isDue, newCard, review, rustOf, stageOf } from "../engine/srs";
 import type { Task } from "../engine/tasks";
 import { dayKey, daysBetween, hash, wordCount } from "../engine/text";
@@ -66,9 +67,86 @@ function ownedTopics(s: GameState, catalog: Catalog): TopicId[] {
   return [...set];
 }
 
-/** Once per calendar day: streak bookkeeping, fresh orders, cooling weak spots. */
+/** New machines the learner may still build today. */
+export function newLeftToday(s: GameState, now: number): number {
+  return Math.max(0, s.settings.newPerDay - (s.stats.days[dayKey(now)]?.built ?? 0));
+}
+
+/** Blueprints waiting for their first correct sentence. */
+export function queuedBlueprints(s: GameState): number {
+  let n = 0;
+  for (const c of Object.values(s.cards)) if (stageOf(c) === 0) n++;
+  return n;
+}
+
+function topErrorTypes(s: GameState): ErrorType[] {
+  return (Object.entries(s.stats.errors) as [ErrorType, number][])
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([t]) => t);
+}
+
+/** What the level engine would have the learner learn next. */
+export function recommendFor(s: GameState, catalog: Catalog, now: number, count: number): Item[] {
+  return recommend(
+    {
+      catalog,
+      cards: s.cards,
+      level: s.level,
+      hallOpen: (h) => hallUnlocked(s, h),
+      weak: weakRules(s),
+      errorTypes: topErrorTypes(s),
+      seed: dayKey(now),
+    },
+    count,
+  );
+}
+
+/** Blueprints the daily delivery brings for free; the rest of the day's allowance is bought with Taler. */
+export const FREE_DELIVERY = 3;
+
+/**
+ * The daily delivery: the level engine picks blueprints that fit the learner so the
+ * queue always holds today's allowance of new machines. The first few each day are
+ * free, so learning never stalls; the rest are bought at the normal price while the
+ * Taler last. Idempotent: calling it again the same day only tops up.
+ */
+export function deliver(s: GameState, catalog: Catalog, now: number): Item[] {
+  if (!s.settings.autoDeliver || !s.onboarded) return [];
+  const need = newLeftToday(s, now) - queuedBlueprints(s);
+  if (need <= 0) return [];
+  const day = dayKey(now);
+  const today = s.delivery?.day === day ? s.delivery : { day, ids: [], free: 0, paid: 0 };
+  const got: Item[] = [];
+  // Never spend more than half of the Taler, so there is always money left for upgrades.
+  let budget = s.taler / 2;
+  for (const it of recommendFor(s, catalog, now, need)) {
+    if (today.free >= FREE_DELIVERY) {
+      const cost = unlockCost(s, it);
+      if (cost > budget) break;
+      budget -= cost;
+      s.taler -= cost;
+      today.paid += cost;
+    } else {
+      today.free++;
+    }
+    s.cards[it.id] = newCard(it.id, now + got.length);
+    got.push(it);
+  }
+  if (got.length) s.delivery = { ...today, ids: [...today.ids, ...got.map((it) => it.id)] };
+  return got;
+}
+
+/** Once per calendar day: streak bookkeeping, fresh orders, cooling weak spots, the delivery. */
 export function rollover(s: GameState, catalog: Catalog, now: number): void {
   const day = dayKey(now);
+  if (!s.level.seeded) {
+    const history = Object.values(s.cards)
+      .map((c) => ({ item: catalog.get(c.id), ok: c.ok, fail: c.fail }))
+      .filter((h): h is { item: Item; ok: number; fail: number } => !!h.item);
+    seedFromHistory(s.level, history);
+  }
+  if (s.level.day !== day) decayBasics(s.level, day, s.level.day ? daysBetween(s.level.day, day) : 1);
   if (s.stats.heatDay !== day) {
     const gap = s.stats.heatDay ? Math.max(1, daysBetween(s.stats.heatDay, day)) : 1;
     const f = Math.pow(0.7, gap);
@@ -105,6 +183,7 @@ export function rollover(s: GameState, catalog: Catalog, now: number): void {
       }),
     };
   }
+  deliver(s, catalog, now);
 }
 
 export type UnlockError = "owned" | "locked_hall" | "too_expensive";
@@ -146,6 +225,8 @@ export interface TaskEvents {
   combo: number;
   comboBroken: boolean;
   built: string[];
+  /** A1 basics the learner knew on first sight: running machines straight away. */
+  confirmed: string[];
   repaired: string[];
   stageUps: { id: string; from: number; to: number }[];
   orders: Order[];
@@ -227,20 +308,27 @@ export function applyGrade(
   const sentence = grade.corrected || answer;
 
   const built: string[] = [];
+  const confirmed: string[] = [];
   const repaired: string[] = [];
   const stageUps: TaskEvents["stageUps"] = [];
+  const refresh = task.reason === "refresh";
   let rustSum = 0;
   let xp = 5;
   for (const t of grade.targets) {
-    const card = s.cards[t.id];
+    const it = catalog.get(t.id);
+    // An A1 refresher meets the item for the first time here: its machine is set up now.
+    const card = s.cards[t.id] ?? (refresh && it ? newCard(t.id, now) : undefined);
     if (!card) continue;
+    const firstSight = refresh && card.reps === 0;
     const wasDue = isDue(card, now);
     rustSum += rustOf(card, now);
-    const res = review(card, t.status, { now, sentence });
+    if (it && !opts.gaveUp) observe(s.level, it, t.status, card.reps);
+    const res = review(card, t.status, { now, sentence, known: firstSight });
     s.cards[t.id] = res.card;
     if (SUCCESS.includes(t.status)) {
       xp += 10;
-      if (res.stageBefore === 0 && res.stageAfter > 0) built.push(t.id);
+      if (firstSight) confirmed.push(t.id);
+      else if (res.stageBefore === 0 && res.stageAfter > 0) built.push(t.id);
       else if (wasDue) repaired.push(t.id);
       if (res.stageAfter > res.stageBefore && res.stageBefore > 0) {
         stageUps.push({ id: t.id, from: res.stageBefore, to: res.stageAfter });
@@ -260,6 +348,8 @@ export function applyGrade(
   }
   day.built += built.length;
   day.repaired += repaired.length;
+  if (grade.source === "ai" && grade.level && !opts.gaveUp) observeAi(s.level, grade.level);
+  noteBasics(s.level, grade.errors, (id) => catalog.get(id)?.level);
   for (const e of grade.errors) {
     day.errors[e.type] = (day.errors[e.type] ?? 0) + 1;
     s.stats.errors[e.type] = (s.stats.errors[e.type] ?? 0) + 1;
@@ -340,6 +430,7 @@ export function applyGrade(
     combo: s.combo,
     comboBroken: !success && comboBefore > 1,
     built,
+    confirmed,
     repaired,
     stageUps,
     orders,

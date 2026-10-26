@@ -110,7 +110,7 @@ export interface ReviewResult {
 export function review(
   card: CardState,
   outcome: Outcome,
-  opts: { now: number; sentence?: string },
+  opts: { now: number; sentence?: string; known?: boolean },
 ): ReviewResult {
   const stageBefore = stageOf(card);
   const good = outcome === "correct" || outcome === "flawed";
@@ -125,7 +125,8 @@ export function review(
     const next = { ...card, ...counts };
     return { card: next, scheduled: false, stageBefore, stageAfter: stageOf(next) };
   }
-  const grade = gradeFor(outcome);
+  // A basic the learner already knew on first sight (an A1 refresher) starts like an Easy card.
+  const grade = opts.known && card.st === State.New && outcome === "correct" ? Rating.Easy : gradeFor(outcome);
   const rec = scheduler.next(toFsrs(card), new Date(opts.now), grade);
   const next = fromFsrs(card.id, rec.card, card.unlockedAt, { ...counts, lastDay: today });
   return { card: next, scheduled: true, stageBefore, stageAfter: stageOf(next) };

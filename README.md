@@ -18,6 +18,9 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
 - **Error-driven practice.** Corrections are tagged (case, word order, adjective ending …) and
   linked to grammar machines. Repeated mistakes come back as "weak spot" tasks, and the shop
   recommends the matching grammar.
+- **A level engine.** It estimates your CEFR level per area from your answers and the
+  corrector's reading of your sentences, delivers new blueprints just above that level every
+  day, brings A1 basics back now and then, and tells the corrector how far to push you.
 - **Speed drills (Akkord).** 60-second rounds on articles, plurals, Perfekt, Präteritum,
   prepositions + case, Wo/Wohin, pronouns, possessives and adjective endings, built from
   your own machines. They need no AI.
@@ -69,8 +72,9 @@ Code map:
 - `src/content/`: curriculum and its schema in `types.ts`: 60 grammar structures, 180 nouns,
   114 verbs, 75 adjectives/adverbs, 74 expressions and 90 everyday situations, all A2–B1,
   all written for this app.
-- `src/engine/`: FSRS wrapper and stages (`srs.ts`), shift builder (`tasks.ts`), form drills
-  (`drills.ts`), Anki import (`importer.ts`), text helpers.
+- `src/engine/`: FSRS wrapper and stages (`srs.ts`), shift builder (`tasks.ts`), level engine
+  and recommendations (`level.ts`), form drills (`drills.ts`), Anki import (`importer.ts`),
+  text helpers.
 - `src/ai/`: prompts, response schema, providers (claude.ai `sample`, Anthropic SDK with
   structured outputs, OpenAI-compatible), corrector.
 - `src/game/`: economy, upgrades, orders, achievements, and all state changes in `actions.ts`.

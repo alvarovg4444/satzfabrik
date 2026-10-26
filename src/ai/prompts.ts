@@ -57,14 +57,14 @@ function taskRules(task: Task): string {
   }
 }
 
-export function gradePrompt(task: Task, answer: string, catalog: Catalog, lang: ExplainLang): string {
+export function gradePrompt(task: Task, answer: string, catalog: Catalog, lang: ExplainLang, level = "A2–B1"): string {
   const L = EXPLAIN_LANGS[lang].prompt;
   const targets = task.targets
     .map((id) => catalog.get(id))
     .filter((x): x is Item => !!x)
     .map((it) => `- ${describeTarget(it)}`)
     .join("\n");
-  return `You are the corrector in "Satzfabrik", a German writing trainer. The learner is an adult at level A2–B1 who wants to write and speak natural everyday German. Correct like an experienced, kind teacher of German as a foreign language: precise, never pedantic, and never inventing errors.
+  return `You are the corrector in "Satzfabrik", a German writing trainer. The learner is an adult at about level ${level} who wants to write and speak natural everyday German. Correct like an experienced, kind teacher of German as a foreign language: precise, never pedantic, and never inventing errors.
 
 ${taskBlock(task)}
 
@@ -87,15 +87,16 @@ How to judge:
    "missing": not used at all.
    "comment": max 12 words in ${L} about how the target was used.
 4. "corrected": the learner's answer with the smallest changes that make it correct. Keep their words and ideas. If there is no error, repeat the answer exactly.
-5. "better": how a native speaker would say it more naturally, only if clearly better than "corrected"; otherwise "".
+5. "better": how a native speaker would say it more naturally, only if clearly better than "corrected"; otherwise "". Keep it one small step above the learner's level, so they can copy it.
 6. "errors": one entry per mistake. "wrong" = the exact words from the learner's answer, "right" = the corrected words, "type" = one of: ${ERROR_LIST}. "rule" = the id of the grammar topic from the list below that explains the mistake, or "". "explain" = why, max 18 words, in ${L}.
 7. "quality": "perfect" (no errors), "minor" (only small slips such as spelling, a comma or one ending), "major" (errors that change the meaning, or several errors).
 8. "praise": max 8 words in simple German, about something specific they did well. "tip": one short hint in ${L} for next time, or "".
+9. "level": the CEFR level this answer shows, judging range and accuracy together: "A1" (very simple, with basic mistakes), "A2" (simple sentences, mostly correct), "B1" (connected ideas, subordinate clauses, mostly correct), "B2" (varied and precise structures, few mistakes), "C1". A short, correct answer to a simple task is "A2", not higher.
 
 Grammar topics for "rule": ${GRAMMAR_INDEX}
 
 Reply with only this JSON, no other text:
-{"targets":[{"id":"...","status":"correct","comment":"..."}],"quality":"perfect","corrected":"...","better":"","errors":[{"wrong":"...","right":"...","type":"case","rule":"g.praep-dativ","explain":"..."}],"praise":"...","tip":""}`;
+{"targets":[{"id":"...","status":"correct","comment":"..."}],"quality":"perfect","corrected":"...","better":"","errors":[{"wrong":"...","right":"...","type":"case","rule":"g.praep-dativ","explain":"..."}],"praise":"...","tip":"","level":"A2"}`;
 }
 
 export interface GenRequest {
@@ -106,7 +107,7 @@ export interface GenRequest {
   topic?: string;
 }
 
-export function genPrompt(reqs: GenRequest[], catalog: Catalog, seedWords: string[]): string {
+export function genPrompt(reqs: GenRequest[], catalog: Catalog, seedWords: string[], level = "A2–B1"): string {
   const lines = reqs.map((r, i) => {
     const t = r.targets
       .map((id) => catalog.get(id))
@@ -115,9 +116,9 @@ export function genPrompt(reqs: GenRequest[], catalog: Catalog, seedWords: strin
       .join(" + ");
     return `${i + 1}. key "${r.key}", type ${r.type === "translate" ? "translate" : "situation"}${r.topic ? `, topic ${r.topic}` : ""}: ${t}`;
   });
-  return `You write practice tasks for "Satzfabrik", a German trainer for an adult learner at level A2–B1 who lives in a German-speaking country and wants to use German in daily life.
+  return `You write practice tasks for "Satzfabrik", a German trainer for an adult learner at about level ${level} who lives in a German-speaking country and wants to use German in daily life.
 
-For each request of type "situation": write a short, concrete everyday situation (1–2 sentences, simple German at A2 level, address the learner as "du") in which using ALL listed targets is natural, and the same situation in English. Leave "source_en" and "reference_de" empty.
+For each request of type "situation": write a short, concrete everyday situation (1–2 sentences in simple German the learner can read at their level, address the learner as "du") in which using ALL listed targets is natural, and the same situation in English. Leave "source_en" and "reference_de" empty.
 For each request of type "translate": write one natural English sentence (max 16 words) whose German translation needs ALL listed targets, and a correct, natural German translation as "reference_de". Leave the scenario fields empty.
 
 Make every task specific and different from the others: real places, times, people's names, small problems and plans from adult life (work, flat, landlord, doctor, offices, shopping, friends, family, travel, hobbies). For inspiration only: ${seedWords.join(", ")}.

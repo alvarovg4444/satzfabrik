@@ -64,14 +64,9 @@ describe("60-day economy simulation", () => {
         }
         finishShift(s, catalog, now);
       }
-      // Spend: blueprints first (at most 6 a day), then the cheapest upgrade.
-      let bought = 0;
-      const candidates = catalog.items.filter((it) => !s.cards[it.id]);
-      for (const it of candidates) {
-        if (bought >= 12) break;
-        if (unlock(s, it, now) === null) bought++;
-      }
-      newPerDay += bought;
+      // New blueprints arrive with the daily delivery (partly bought with Taler); then the cheapest upgrade.
+      const bought = s.delivery?.day === dayKey(now) ? s.delivery.ids.length : 0;
+      newPerDay += s.stats.days[dayKey(now)]?.built ?? 0;
       const up = UPGRADES.map((u) => ({ u, cost: upgradeCost(u, s.upgrades[u.id] ?? 0) }))
         .filter(({ u }) => (s.upgrades[u.id] ?? 0) < u.max)
         .sort((a, b) => a.cost - b.cost)[0];

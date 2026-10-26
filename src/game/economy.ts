@@ -69,7 +69,12 @@ export function idleEarnings(s: GameState, catalog: Catalog, now: number): { amo
   return { amount, hours: span / HOUR, capped: elapsed > cap };
 }
 
-/** Price of a blueprint. Grows with the number of machines you already own. */
+/**
+ * Price of a blueprint (in the shop, and for the paid part of the daily delivery).
+ * Grows with the number of machines you already own, so production growth is
+ * spent on growth: when prices catch up with income, the delivery shrinks to its
+ * free part instead of piling up machines you cannot maintain.
+ */
 export function unlockCost(s: GameState, it: Item): number {
   const owned = Object.keys(s.cards).length;
   return Math.round(BASE_COST[it.kind] * Math.pow(1 + owned / 15, 1.8));

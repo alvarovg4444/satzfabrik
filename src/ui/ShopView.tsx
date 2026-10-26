@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { GRAMMAR } from "../content/catalog";
-import { HALLS, TOPICS, type ErrorType, type HallId, type Item, type Level, type TopicId } from "../content/types";
+import { HALLS, TOPICS, type HallId, type Item, type Level, type TopicId } from "../content/types";
 import { shortName } from "../engine/tasks";
 import { fold } from "../engine/text";
-import { buyUpgrade, canUnlock, hallUnlocked, unlock } from "../game/actions";
+import { LEVEL_NUM, levelLabel, overall } from "../engine/level";
+import { buyUpgrade, canUnlock, FREE_DELIVERY, hallUnlocked, recommendFor, unlock } from "../game/actions";
 import { fmt, unlockCost } from "../game/economy";
 import { UPGRADES, upgradeCost } from "../game/upgrades";
 import { store, useCatalog, useGame } from "../store/store";
@@ -20,8 +20,6 @@ const KIND_DE: Record<Item["kind"], string> = {
   expr: "Ausdruck",
   gram: "Grammatik",
 };
-
-const LEVEL_ORDER: Record<Level, number> = { A1: 0, A2: 1, B1: 2, B2: 3 };
 
 function BlueprintRow({ it, onInfo }: { it: Item; onInfo: () => void }) {
   const s = useGame();
@@ -56,33 +54,6 @@ function BlueprintRow({ it, onInfo }: { it: Item; onInfo: () => void }) {
   );
 }
 
-function recommendations(s: ReturnType<typeof store.get>, items: Item[]): Item[] {
-  const errs = Object.entries(s.stats.errors).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0)) as [ErrorType, number][];
-  const out: Item[] = [];
-  const seen = new Set<string>();
-  const add = (it: Item | undefined) => {
-    if (it && !s.cards[it.id] && hallUnlocked(s, it.hall) && !seen.has(it.id)) {
-      seen.add(it.id);
-      out.push(it);
-    }
-  };
-  // Structures that explain your most frequent mistakes come first.
-  for (const [type] of errs.slice(0, 3)) {
-    for (const g of GRAMMAR.filter((g) => g.errors.includes(type)).sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]).slice(0, 2)) add(g);
-  }
-  for (const id of Object.keys(s.stats.ruleHeat)) add(items.find((i) => i.id === id));
-  // Then the next easiest pieces from the topics you already work with.
-  const topics = new Set(Object.keys(s.cards).map((id) => items.find((i) => i.id === id)?.topic).filter(Boolean));
-  const rest = items
-    .filter((i) => !s.cards[i.id] && hallUnlocked(s, i.hall))
-    .sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || Number(!topics.has(a.topic)) - Number(!topics.has(b.topic)));
-  for (const it of rest) {
-    if (out.length >= 6) break;
-    add(it);
-  }
-  return out.slice(0, 6);
-}
-
 export function ShopView() {
   const s = useGame();
   const catalog = useCatalog();
@@ -94,7 +65,8 @@ export function ShopView() {
   const [limit, setLimit] = useState(40);
   const [info, setInfo] = useState<Item | null>(null);
 
-  const recs = useMemo(() => recommendations(s, catalog.items), [s, catalog]);
+  const recs = useMemo(() => recommendFor(s, catalog, Date.now(), 6), [s, catalog]);
+  const theta = overall(s.level).theta;
   const list = useMemo(() => {
     const needle = fold(q);
     return catalog.items
@@ -103,8 +75,14 @@ export function ShopView() {
       .filter((it) => topic === "all" || it.topic === topic)
       .filter((it) => level === "all" || it.level === level)
       .filter((it) => !needle || fold(`${it.de} ${it.en} ${it.kind === "gram" ? it.name : ""}`).includes(needle))
-      .sort((a, b) => Number(!hallUnlocked(s, a.hall)) - Number(!hallUnlocked(s, b.hall)) || LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level] || a.de.localeCompare(b.de, "de"));
-  }, [catalog, s, hall, topic, level, q]);
+      .sort(
+        (a, b) =>
+          Number(!hallUnlocked(s, a.hall)) - Number(!hallUnlocked(s, b.hall)) ||
+          // closest to the learner's level first, so A1 basics don't bury the useful pieces
+          Math.abs(LEVEL_NUM[a.level] - theta - 0.35) - Math.abs(LEVEL_NUM[b.level] - theta - 0.35) ||
+          a.de.localeCompare(b.de, "de"),
+      );
+  }, [catalog, s, hall, topic, level, q, theta]);
 
   return (
     <>
@@ -130,7 +108,12 @@ export function ShopView() {
           {recs.length ? (
             <section className="card stack">
               <h3>Empfohlen für dich</h3>
-              <p className="small muted">Passend zu deinen häufigsten Fehlern und deinem Niveau.</p>
+              <p className="small muted">
+                Passend zu deinem Niveau ({levelLabel(theta).code}) und deinen häufigsten Fehlern.
+                {s.settings.autoDeliver
+                  ? ` Jeden Tag liefert die Fabrik solche Baupläne bis zu deinem Tageslimit (${s.settings.newPerDay}): ${FREE_DELIVERY} gratis, den Rest kauft sie mit höchstens der Hälfte deiner Taler. Hier kannst du dir zusätzlich welche aussuchen.`
+                  : " Automatische Lieferung ist aus (Einstellungen)."}
+              </p>
               <div className="list">
                 {recs.map((it) => (
                   <BlueprintRow key={it.id} it={it} onInfo={() => setInfo(it)} />

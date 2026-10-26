@@ -24,7 +24,8 @@ Everything learnable is an **item** (`src/content/types.ts`):
 Each item you own has a **card**: the FSRS memory state (stability, difficulty, due date),
 how often you used it right or wrong, and your last three corrected sentences with it.
 The save also keeps daily stats, error counts per type, a "heat" value per grammar rule,
-your journal (last 300 sentences with corrections), the economy and settings.
+your journal (last 300 sentences with corrections), the level estimate (see below), the
+economy and settings.
 
 **Where it is saved.** On claude.ai the save is split into a few documents under your private
 `data/users/<id>/` path in the artifact database (each document stays under 256 KiB) and
@@ -35,8 +36,9 @@ never written to the cloud. You can export and import the save as text in Settin
 
 1. **The shift builder** (`engine/tasks.ts`) picks about 10 tasks: new blueprints (an intro
    card plus the first sentence), rusty machines (rustiest first), one weak-spot task from
-   your recent mistakes, and combos that bundle mature items (one structure plus one or two
-   words) into a single situation. Task types rotate by stage: grammar starts with
+   your recent mistakes, one to three A1 basics to check again, and combos that bundle mature
+   items (one structure plus one or two words) into a single situation. You never have to
+   look for rusty machines yourself: whatever is due comes back in the next shift. Task types rotate by stage: grammar starts with
    translations that force the structure (so you can't avoid it), then rebuild tasks, then
    free sentences.
 2. **Cues fade with the stage.** A new noun shows "der Termin, appointment". At stage 2 you
@@ -49,12 +51,14 @@ never written to the cloud. You can export and import the save as text in Settin
    - a status per target: correct, flawed, synonym, wrong or missing;
    - a minimal correction and an optional more natural version;
    - each error as exact words → fix, with a type, a grammar id and a short explanation;
-   - praise and a tip.
+   - praise and a tip;
+   - the CEFR level the answer shows, which feeds the level engine.
 
    It is told never to invent errors and to accept colloquial but correct German. Answers
    that match the model answer exactly skip the AI.
-5. **Grading → schedule** (`engine/srs.ts`): correct → Good (Easy if the sentence is perfect at
-   stage 3+), flawed or synonym → Hard, wrong or missing → Again. Only the first graded
+5. **Grading → schedule** (`engine/srs.ts`): correct → Good, flawed or synonym → Hard, wrong or
+   missing → Again. Never Easy: producing a word fades faster than recognising it. The one
+   exception is an A1 basic you already knew on first sight, which starts as Easy. Only the first graded
    production of an item per day changes its schedule; later ones that day are practice.
    Stages come from FSRS stability: 1 = built, 2 ≥ 3 days, 3 ≥ 10, 4 ≥ 30, 5 (gold) ≥ 90.
 6. **Repair yourself.** After a mistake you can rewrite the sentence. Learners who fix their
@@ -71,6 +75,37 @@ Corrections are not made as you type: grading every keystroke would cost a lot o
 interrupt your thinking. The local check, speech input (standalone) and the instant drills cover the
 "immediate" part.
 
+## The level engine
+
+`engine/level.ts` estimates your CEFR level from your own answers, per area (vocabulary,
+verbs, sentence structure, cases and endings, expressions):
+
+- Ability is a number on the CEFR scale (1 = A1, 2 = A2, 3 = B1, 4 = B2). An item's level is
+  its difficulty, and a logistic model gives the chance that someone at the current estimate
+  uses it correctly (about 80 % at their own level).
+- Every graded use moves the estimate by how surprising the result was (an Elo-style update).
+  First encounters count fully; items practised many times count less, because success there
+  shows memory more than level. The first steps are big, later ones small.
+- The corrector also rates each sentence (A1…C1, complexity and accuracy together); that
+  rating feeds a second, slower signal that makes up 30 % of the overall estimate.
+- An existing save starts from its own history: each machine's right/wrong record counts as
+  one observation.
+
+What it drives:
+
+- **The daily delivery.** Every day the queue is topped up to your new-machine allowance with
+  blueprints just above your level in each area (the "i+1"), from the topics you already
+  work with, with grammar that explains your most frequent mistakes first and a mix of kinds.
+  The first three a day are free; the rest are bought at the normal price with at most half
+  of your Taler. You can still pick extra blueprints in the shop, or switch the delivery off.
+- **A1 refreshers.** One basic per shift (two or three after repeated basic mistakes or at a
+  low level) comes back as a recall task: only the meaning is shown. Known on first sight, it
+  becomes a running machine at once and returns at growing intervals; forgotten, it becomes a
+  blueprint to learn.
+- **The AI prompts.** The corrector and the situation writer are told your level, and the
+  "more natural" suggestion stays one small step above it.
+- **Statistik → Dein Niveau** shows the estimate overall and per area.
+
 ## The game, and why each piece exists
 
 | Mechanic | Learning purpose |
@@ -79,7 +114,8 @@ interrupt your thinking. The local check, speech input (standalone) and the inst
 | Machine output = stage × condition | Long-term retention is what pays |
 | Rust when due, up to 90 % output loss | Reviews feel like maintenance, not homework |
 | Offline earnings with 8 h storage (upgradable) | A reason to come back every day |
-| Blueprint prices rise with factory size | New items cost more when you have more to maintain, which prevents overload |
+| Daily delivery of fitting blueprints, partly free | New material arrives at your level without browsing a catalogue of thousands |
+| Blueprint prices rise with factory size | Growth is paid with production; when prices catch up, the delivery shrinks to its free part instead of piling up more than you can maintain |
 | Combo multiplier for correct answers in a row | Concentration pays; a mistake resets the combo but still earns a little |
 | Daily orders + chest with random prize | Variable rewards and small, clear goals (good for ADHD) |
 | Streak tied to a daily sentence goal | Daily habit; streak freezes come from chests |
