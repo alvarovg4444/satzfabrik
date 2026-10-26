@@ -176,7 +176,7 @@ export function FactoryView({
   onPractice,
 }: {
   onStartShift: () => void;
-  onShop: () => void;
+  onShop: (tab?: "upgrades" | "plans") => void;
   onPractice: (id: string) => void;
 }) {
   const s = useGame();
@@ -234,7 +234,7 @@ export function FactoryView({
             <Icon name="play" size={18} />
             {rusty ? `Wartungsschicht (${rusty} rosten)` : blueprints ? "Schicht: neue Maschinen bauen" : "Schicht starten"}
           </button>
-          <button type="button" className="btn" onClick={onShop} style={{ background: "transparent", color: "inherit" }}>
+          <button type="button" className="btn" onClick={() => onShop()} style={{ background: "transparent", color: "inherit" }}>
             <Icon name="shop" size={18} /> Laden
           </button>
         </div>
@@ -277,7 +277,7 @@ export function FactoryView({
               ) : items.length === 0 ? (
                 <div className="locked">
                   Noch keine Maschinen. Die tägliche Lieferung bringt welche, oder du suchst sie im Lernplan aus.{" "}
-                  <button type="button" className="btn small" onClick={onShop}>
+                  <button type="button" className="btn small" onClick={() => onShop("plans")}>
                     Zum Laden
                   </button>
                 </div>

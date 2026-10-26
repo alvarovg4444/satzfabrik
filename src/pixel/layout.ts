@@ -5,7 +5,7 @@ import { dayKey } from "../engine/text";
 import { hallUnlocked } from "../game/actions";
 import { levelOf } from "../game/economy";
 import type { GameState } from "../game/state";
-import { level as upgradeLevel, type UpgradeId } from "../game/upgrades";
+import { BUILDINGS, UPGRADE_BY_ID, level as upgradeLevel, type BuildingId, type UpgradeId } from "../game/upgrades";
 
 /*
  * Pure layout of the pixel factory: game state in, positions out (logical pixels).
@@ -65,7 +65,7 @@ export interface Site extends Rect {
 }
 
 export interface Walk {
-  who: "worker" | "boss" | "forklift";
+  who: "worker" | "boss" | "trainee" | "forklift";
   x0: number;
   x1: number;
   /** Feet line. */
@@ -74,7 +74,21 @@ export interface Walk {
   phase: number;
 }
 
-export type DecorKind = "tree" | "smallTree" | "bush" | "lamp" | "flower" | "barrel" | "cone" | "container";
+export type DecorKind =
+  | "tree"
+  | "smallTree"
+  | "bush"
+  | "lamp"
+  | "flower"
+  | "barrel"
+  | "cone"
+  | "container"
+  /** Tool shed, v = size 0–2 (toolbox upgrade). */
+  | "shed"
+  /** Combo press in the yard, animated. */
+  | "combopress"
+  /** Clock on a post next to the HQ, showing the real time. */
+  | "clock";
 
 export interface Decor {
   kind: DecorKind;
@@ -83,18 +97,31 @@ export interface Decor {
   v: number;
 }
 
+/** A big project on the factory grounds, or the plot for the next one. */
+export interface Building extends Rect {
+  id: BuildingId;
+  /** false: the next plot, fenced off, with its price on a sign. */
+  built: boolean;
+  price: number;
+  sign: string;
+}
+
 export interface FactoryScene {
   w: number;
   h: number;
   roads: Rect[];
   walkways: Rect[];
-  hq: Rect & { floors: number; streak: number; total: number; level: number };
+  /** floors from the HQ upgrade, stars from the master's certificate. */
+  hq: Rect & { floors: number; streak: number; total: number; level: number; stars: number };
   lot: Rect & { spots: Rect[]; cars: number; today: number };
+  buildings: Building[];
   halls: HallBox[];
   sites: Site[];
   stations: Station[];
   walks: Walk[];
   decor: Decor[];
+  /** Trucks in the fleet: how many of the vehicles on the roads are the factory's own car transporters. */
+  fleet: number;
 }
 
 export const STATION: Record<StationKind, { w: number; h: number; gap: number; aisle: number }> = {
@@ -115,6 +142,38 @@ export const RACK_SLOTS = 9;
 const MAX_ROWS: Record<StationKind, number> = { robot: 6, rack: 8, press: 8, bigpress: 3, booth: 4, bench: 6 };
 
 export const HALL_ORDER: HallId[] = ["satzbau", "woerter", "verben", "faelle", "redemittel"];
+
+/** Footprints on the factory grounds; w 0 spans the whole width (rail siding, test track). */
+export const BUILDING_SIZE: Record<BuildingId, { w: number; h: number }> = {
+  kantine: { w: 62, h: 40 },
+  wasserturm: { w: 30, h: 52 },
+  parkhaus: { w: 60, h: 46 },
+  ausbildung: { w: 64, h: 44 },
+  solarpark: { w: 70, h: 34 },
+  bahn: { w: 0, h: 24 },
+  teststrecke: { w: 0, h: 56 },
+  heliport: { w: 46, h: 42 },
+};
+/** The fenced plot for the next building. */
+export const PLOT = { w: 58, h: 34 };
+
+const BUILDING_SIGNS: Record<BuildingId, string> = {
+  kantine: "Kantine",
+  wasserturm: "Wasserturm",
+  parkhaus: "Parkhaus",
+  ausbildung: "Ausbildung",
+  solarpark: "Solarpark",
+  bahn: "Gleis",
+  teststrecke: "Teststrecke",
+  heliport: "Heliport",
+};
+
+/** Tool shed sizes by toolbox level: 1–9, 10–19, 20+. */
+export const SHED = [
+  { w: 20, h: 16 },
+  { w: 26, h: 18 },
+  { w: 32, h: 20 },
+];
 
 const SIGNS: Record<HallId, string> = {
   satzbau: "Satzbau-Halle",
@@ -221,6 +280,7 @@ export function layout(inp: MapInput): FactoryScene {
   const W = Math.max(160, Math.floor(inp.width));
   const M = W >= 300 ? 16 : W >= 240 ? 12 : 8;
   const rand = rng(inp.seed + 7);
+  const up = (id: UpgradeId) => upgradeLevel(inp.upgrades, id);
   const roads: Rect[] = [];
   const walkways: Rect[] = [];
   const halls: HallBox[] = [];
@@ -228,16 +288,19 @@ export function layout(inp: MapInput): FactoryScene {
   const stations: Station[] = [];
   const walks: Walk[] = [];
   const decor: Decor[] = [];
+  const lines: Line[] = [];
+  const aisles: Aisle[] = [];
 
   let y = TREE_BAND;
   roads.push({ x: 0, y, w: W, h: ROAD_H });
   y += ROAD_H + 4;
 
-  // headquarters and the delivery lot
+  // headquarters (one floor more per HQ upgrade) and the delivery lot
   const hqW = W >= 260 ? 80 : 68;
-  const floors = Math.max(1, Math.min(6, 1 + Math.floor((inp.level - 1) / 2)));
+  const floors = 1 + Math.min(6, up("verwaltung"));
   const hqH = 10 + 16 + 8 + 10 * floors + 3;
-  const hq = { x: M, y, w: hqW, h: hqH, floors, streak: inp.streak, total: inp.total, level: inp.level };
+  const hq = { x: M, y, w: hqW, h: hqH, floors, streak: inp.streak, total: inp.total, level: inp.level, stars: up("meisterbrief") };
+  if (up("akkorduhr") > 0) decor.push({ kind: "clock", x: hq.x + hq.w + 1, y: hq.y + hq.h - 22, v: 0 });
   const lotX = M + hqW + 10;
   const lotW = W - M - lotX;
   const cols = Math.max(1, Math.floor((lotW - 4) / SPOT_W));
@@ -255,44 +318,22 @@ export function layout(inp: MapInput): FactoryScene {
   for (let r = 0; r < lotRows; r++)
     for (let c = 0; c < cols; c++) lot.spots.push({ x: spotX + c * SPOT_W, y: lot.y + 5 + r * SPOT_H, w: SPOT_W, h: SPOT_H });
   lot.cars = Math.min(inp.today, lot.spots.length);
-  let blockBottom = Math.max(hq.y + hq.h, lot.y + lot.h);
-  // the yard under the lot: containers (warehouse upgrade) and oil barrels (machine oil)
-  const containers = upgradeLevel(inp.upgrades, "lagerhalle");
-  const barrels = upgradeLevel(inp.upgrades, "schmieroel");
-  if (containers + barrels > 0) {
-    const cy = lot.y + lot.h + 4;
-    let cx = lot.x;
-    for (let i = 0; i < containers && cx + 24 <= W - M; i++, cx += 26) decor.push({ kind: "container", x: cx, y: cy, v: i });
-    for (let i = 0; i < barrels && cx + 8 <= W - M; i++) {
-      decor.push({ kind: "barrel", x: cx, y: cy + 2, v: i });
-      cx += 9;
-    }
-    blockBottom = Math.max(blockBottom, cy + 14);
-  }
-  y = blockBottom + 4;
+  const yardBottom = layoutYard(inp.upgrades, lot.x, lot.y + lot.h + 4, lot.w, decor);
+  y = Math.max(hq.y + hq.h, lot.y + lot.h, yardBottom) + 6;
 
-  const builtTotal = inp.halls.reduce((n, h) => n + h.items.filter((i) => i.stage > 0).length, 0);
-  const walkerBudget = { n: Math.min(24, 2 + Math.floor(builtTotal / 5)) };
+  // the factory grounds: buildings bought with Taler, and the plot for the next one
+  const campus = layoutCampus(inp.upgrades, M, y, W - 2 * M, walks);
+  if (campus.buildings.length) y += campus.h + 6;
 
   const addWalkway = () => {
-    const r = { x: 0, y, w: W, h: WALK_H };
-    walkways.push(r);
+    walkways.push({ x: 0, y, w: W, h: WALK_H });
     decor.push({ kind: "lamp", x: Math.max(0, M - 8), y: y + WALK_H - 18, v: 0 });
     decor.push({ kind: "lamp", x: W - M + 1, y: y + WALK_H - 18, v: 1 });
-    if (walkerBudget.n > 0) {
-      walkerBudget.n--;
-      walks.push({ who: "worker", x0: M, x1: W - M - 12, y: y + WALK_H - 2, speed: 9 + rand() * 6, phase: rand() });
-    }
+    lines.push({ x0: M, x1: W - M - 12, y: y + WALK_H - 2 });
     y += WALK_H;
   };
 
   addWalkway();
-  const bosses = upgradeLevel(inp.upgrades, "schichtleiter");
-  for (let i = 0; i < bosses; i++) {
-    const wk = walkways[0];
-    walks.push({ who: "boss", x0: M, x1: W - M - 12, y: wk.y + WALK_H - 2, speed: 7 + i, phase: (i + 1) / (bosses + 1) });
-  }
-
   for (const h of inp.halls) {
     if (!h.unlocked) {
       sites.push({ id: h.id, x: M, y, w: W - 2 * M, h: SITE_H, sign: SIGNS[h.id], unlockLevel: h.unlockLevel });
@@ -302,11 +343,12 @@ export function layout(inp: MapInput): FactoryScene {
       addWalkway();
       continue;
     }
-    const box = layoutHall(h, M, y, W - 2 * M, stations, walks, walkerBudget, rand, inp.upgrades);
+    const box = layoutHall(h, M, y, W - 2 * M, stations, aisles, inp.upgrades);
     halls.push(box);
     y += box.h;
     addWalkway();
   }
+  placeStaff(inp.upgrades, lines, aisles, walks, rand);
 
   roads.push({ x: 0, y: y + 4, w: W, h: ROAD_H });
   y += 4 + ROAD_H + TREE_BAND;
@@ -326,7 +368,164 @@ export function layout(inp: MapInput): FactoryScene {
       }
     }
   }
-  return { w: W, h: y, roads, walkways, hq, lot, halls, sites, stations, walks, decor };
+  return { w: W, h: y, roads, walkways, hq, lot, buildings: campus.buildings, halls, sites, stations, walks, decor, fleet: up("lkw") };
+}
+
+/** A walkway between the halls: people walk on it in two lanes, 4 px apart. */
+interface Line {
+  x0: number;
+  x1: number;
+  /** Feet line of the front lane. */
+  y: number;
+}
+
+/** The aisle under a row of machines. */
+interface Aisle {
+  x0: number;
+  x1: number;
+  y: number;
+  rack: boolean;
+}
+
+/**
+ * The yard under the delivery lot: tool shed (toolbox), combo press, containers
+ * (warehouse) and oil barrels, in rows. Returns the bottom edge.
+ */
+function layoutYard(upgrades: Partial<Record<UpgradeId, number>>, x0: number, y0: number, w: number, decor: Decor[]): number {
+  const things: { kind: DecorKind; w: number; h: number; v: number }[] = [];
+  const tools = upgradeLevel(upgrades, "werkzeug");
+  if (tools > 0) {
+    const v = tools >= 20 ? 2 : tools >= 10 ? 1 : 0;
+    things.push({ kind: "shed", ...SHED[v], v });
+  }
+  const combo = upgradeLevel(upgrades, "kombipresse");
+  if (combo > 0) things.push({ kind: "combopress", w: 20, h: 22, v: combo });
+  for (let i = 0; i < upgradeLevel(upgrades, "lagerhalle"); i++) things.push({ kind: "container", w: 24, h: 12, v: i });
+  for (let i = 0; i < upgradeLevel(upgrades, "schmieroel"); i++) things.push({ kind: "barrel", w: 8, h: 10, v: i });
+  if (!things.length) return y0 - 4;
+  const GAP = 3;
+  const rows: (typeof things)[] = [[]];
+  let used = 0;
+  for (const t of things) {
+    const row = rows[rows.length - 1];
+    if (row.length && used + GAP + t.w > w) {
+      rows.push([t]);
+      used = t.w;
+    } else {
+      row.push(t);
+      used += (row.length > 1 ? GAP : 0) + t.w;
+    }
+  }
+  let y = y0;
+  for (const row of rows) {
+    const rh = Math.max(...row.map((t) => t.h));
+    let x = x0;
+    for (const t of row) {
+      decor.push({ kind: t.kind, x, y: y + rh - t.h, v: t.v });
+      x += t.w + GAP;
+    }
+    y += rh + GAP;
+  }
+  return y - GAP;
+}
+
+/**
+ * Buildings on the factory grounds, in the order of the shop, plus the fenced plot of
+ * the cheapest one not built yet. Small buildings share rows and stand on one ground
+ * line; the rail siding and the test track take the full width.
+ */
+function layoutCampus(
+  upgrades: Partial<Record<UpgradeId, number>>,
+  x0: number,
+  y0: number,
+  w: number,
+  walks: Walk[],
+): { buildings: Building[]; h: number } {
+  const owned = (id: BuildingId) => upgradeLevel(upgrades, id) > 0;
+  const next = BUILDINGS.filter((id) => !owned(id)).sort((a, b) => UPGRADE_BY_ID.get(a)!.base - UPGRADE_BY_ID.get(b)!.base)[0];
+  const shown = BUILDINGS.filter((id) => owned(id) || id === next);
+  const GAP = 6;
+  type Cell = { id: BuildingId; w: number; h: number; built: boolean };
+  const rows: { cells: Cell[]; wide: boolean }[] = [];
+  let used = 0;
+  for (const id of shown) {
+    const built = id !== next;
+    const size = built ? BUILDING_SIZE[id] : PLOT;
+    if (size.w === 0) {
+      rows.push({ cells: [{ id, w, h: size.h, built }], wide: true });
+      continue;
+    }
+    const cell = { id, w: Math.min(w, size.w), h: size.h, built };
+    const row = rows[rows.length - 1];
+    if (row && !row.wide && used + GAP + cell.w <= w) {
+      row.cells.push(cell);
+      used += GAP + cell.w;
+    } else {
+      rows.push({ cells: [cell], wide: false });
+      used = cell.w;
+    }
+  }
+  const buildings: Building[] = [];
+  let y = y0;
+  for (const row of rows) {
+    const rh = Math.max(...row.cells.map((c) => c.h));
+    const total = row.cells.reduce((n, c) => n + c.w, 0) + GAP * (row.cells.length - 1);
+    let x = x0 + Math.floor((w - total) / 2);
+    for (const c of row.cells) {
+      buildings.push({ id: c.id, built: c.built, price: UPGRADE_BY_ID.get(c.id)!.base, sign: BUILDING_SIGNS[c.id], x, y: y + rh - c.h, w: c.w, h: c.h });
+      x += c.w + GAP;
+    }
+    y += rh + GAP;
+  }
+  // apprentices in green helmets cross the forecourt of the training centre
+  const school = buildings.find((b) => b.id === "ausbildung" && b.built);
+  if (school) {
+    walks.push({ who: "trainee", x0: school.x + 2, x1: school.x + school.w - 14, y: school.y + school.h - 1, speed: 6, phase: 0.15 });
+    walks.push({ who: "trainee", x0: school.x + 2, x1: school.x + school.w - 14, y: school.y + school.h - 5, speed: 8, phase: 0.6 });
+  }
+  return { buildings, h: Math.max(0, y - y0 - GAP) };
+}
+
+/**
+ * Staff from the shop: forklifts take the warehouse aisles first, then other aisles,
+ * then the back lane of the walkways. Workers (one is always there, plus one per
+ * hire) fill the walkways, then the free aisles, then more lanes. Shift supervisors
+ * walk one per walkway from the top.
+ */
+function placeStaff(upgrades: Partial<Record<UpgradeId, number>>, lines: Line[], aisles: Aisle[], walks: Walk[], rand: () => number): void {
+  if (!lines.length) return;
+  let forklifts = upgradeLevel(upgrades, "gabelstapler");
+  const busy = new Set<Aisle>();
+  for (const a of [...aisles.filter((a) => a.rack), ...aisles.filter((a) => !a.rack)]) {
+    if (forklifts <= 0) break;
+    walks.push({ who: "forklift", x0: a.x0, x1: a.x1 - 18, y: a.y, speed: 10 + rand() * 6, phase: rand() });
+    busy.add(a);
+    forklifts--;
+  }
+  const backTaken = new Set<number>();
+  for (let i = 0; forklifts > 0 && i < lines.length; i++, forklifts--) {
+    const l = lines[i];
+    walks.push({ who: "forklift", x0: l.x0, x1: l.x1 - 6, y: l.y - 4, speed: 10 + rand() * 6, phase: rand() });
+    backTaken.add(i);
+  }
+  let workers = 1 + upgradeLevel(upgrades, "arbeiter");
+  const put = (x0: number, x1: number, y: number) => {
+    walks.push({ who: "worker", x0, x1, y, speed: 7 + rand() * 7, phase: rand() });
+    workers--;
+  };
+  for (const l of lines) if (workers > 0) put(l.x0, l.x1, l.y);
+  for (const a of aisles) if (workers > 0 && !busy.has(a)) put(a.x0, a.x1 - 12, a.y);
+  for (let round = 0; round < 3 && workers > 0; round++) {
+    const back = round % 2 === 0;
+    lines.forEach((l, i) => {
+      if (workers > 0 && !(back && backTaken.has(i))) put(l.x0, l.x1, back ? l.y - 4 : l.y);
+    });
+  }
+  const bosses = upgradeLevel(upgrades, "schichtleiter");
+  for (let i = 0; i < bosses; i++) {
+    const l = lines[i % lines.length];
+    walks.push({ who: "boss", x0: l.x0, x1: l.x1, y: l.y, speed: 6 + i, phase: (0.5 + i * 0.37) % 1 });
+  }
 }
 
 function layoutHall(
@@ -335,9 +534,7 @@ function layoutHall(
   y0: number,
   hw: number,
   out: Station[],
-  walks: Walk[],
-  budget: { n: number },
-  rand: () => number,
+  aisles: Aisle[],
   upgrades: Partial<Record<UpgradeId, number>>,
 ): HallBox {
   const inner: Rect = { x: x0 + WALL, y: y0 + WALL + BACK, w: hw - 2 * WALL, h: 0 };
@@ -412,14 +609,7 @@ function layoutHall(
     }
     if (kind === "robot") belts.push({ x: inner.x + 1, y: y + 5, w: inner.w - 2, h: 12, speed, carry: "car" });
     if (kind === "press" || kind === "bigpress") belts.push({ x: inner.x + 1, y: y + st.h + 1, w: inner.w - 2, h: 5, speed, carry: "panel" });
-    const aisleY = y + st.h + st.aisle;
-    if (kind === "rack" && rowItems.length >= 2 && budget.n > 0) {
-      budget.n--;
-      walks.push({ who: "forklift", x0: inner.x + 2, x1: inner.x + inner.w - 20, y: aisleY - 1, speed: 10 + rand() * 6, phase: rand() });
-    } else if (rowItems.length >= 3 && budget.n > 0) {
-      budget.n--;
-      walks.push({ who: "worker", x0: inner.x + 2, x1: inner.x + inner.w - 14, y: aisleY - 1, speed: 7 + rand() * 6, phase: rand() });
-    }
+    if (rowItems.length >= 2) aisles.push({ x0: inner.x + 2, x1: inner.x + inner.w - 2, y: y + st.h + st.aisle - 1, rack: kind === "rack" });
     y += st.h + st.aisle;
   }
 

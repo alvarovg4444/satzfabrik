@@ -135,6 +135,16 @@ const BOSS_PAL: Pal = {
   n: "#2c2c34",
 };
 
+/** Apprentice: green helmet. */
+const TRAINEE_PAL: Pal = {
+  ...WORKER_PAL,
+  Y: "#b8f0a0",
+  y: "#58c048",
+  h: "#2c8a30",
+  v: "#58c048",
+  w: "#f8f8f8",
+};
+
 // --- cars, top-down, facing up (12×16) -------------------------------------------
 
 const CAR = [
@@ -378,6 +388,7 @@ export const SPR = {
   /** frame 0 standing, 1 and 2 walking. */
   worker: (facing: Facing, frame: number) => worker(facing, frame, WORKER_PAL, "w"),
   boss: (facing: Facing, frame: number) => worker(facing, frame, BOSS_PAL, "b"),
+  trainee: (facing: Facing, frame: number) => worker(facing, frame, TRAINEE_PAL, "a"),
   car: (color: number, facing: Facing = "up", primer = false) =>
     cached(`car${color}${facing}${primer ? "p" : ""}`, () => {
       const up = ascii(CAR, carPal(color, primer));

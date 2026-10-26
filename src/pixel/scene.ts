@@ -1,4 +1,5 @@
-import type { FactoryScene, HallBox, Rect, Site, Station } from "./layout";
+import { animateBuilding, buildingLights, drawBuilding, drawClock, drawClockHands, drawComboPress, drawPlot, drawShed } from "./campus";
+import type { Building, FactoryScene, HallBox, Rect, Site, Station } from "./layout";
 import { bench, bigPress, booth, freeSpot, press, PRESS_HIT, rack, robot, ROBOT_TIP } from "./machines";
 import { box, ctx2d, hazard, makeCanvas, noise, px, rect, type Ctx, type Shade } from "./paint";
 import { C, SPR, type Facing } from "./sprites";
@@ -48,10 +49,11 @@ const HALL_ACCENT: Record<string, string> = {
 };
 
 export interface Hit {
-  kind: "station" | "free" | "hall" | "site" | "hq" | "lot";
+  kind: "station" | "free" | "hall" | "site" | "hq" | "lot" | "building" | "plot";
   station?: Station;
   hall?: HallBox;
   site?: Site;
+  building?: Building;
 }
 
 export interface RenderOpts {
@@ -114,6 +116,7 @@ export class FactoryRenderer {
     for (const hall of s.halls) for (const f of hall.free) if (inside(f, 2)) return { kind: "free", hall };
     for (const site of s.sites) if (inside(site)) return { kind: "site", site };
     for (const hall of s.halls) if (inside(hall)) return { kind: "hall", hall };
+    for (const b of s.buildings) if (inside(b)) return { kind: b.built ? "building" : "plot", building: b };
     if (inside(s.hq)) return { kind: "hq" };
     if (inside(s.lot)) return { kind: "lot" };
     return null;
@@ -128,6 +131,7 @@ function drawStatic(c: Ctx, s: FactoryScene): void {
   for (const r of s.walkways) drawWalkway(c, r);
   drawLot(c, s.lot);
   drawHQ(c, s.hq);
+  for (const b of s.buildings) (b.built ? drawBuilding : drawPlot)(c, b);
   for (const h of s.halls) drawHall(c, h);
   for (const site of s.sites) drawSite(c, site);
   const order = [...s.decor].sort((a, b) => a.y - b.y);
@@ -154,7 +158,14 @@ function drawStatic(c: Ctx, s: FactoryScene): void {
       case "container":
         drawContainer(c, d.x, d.y, d.v);
         break;
+      case "shed":
+        drawShed(c, d.x, d.y, d.v);
+        break;
+      case "clock":
+        drawClock(c, d.x, d.y);
+        break;
       case "flower":
+      case "combopress":
         break;
     }
   }
@@ -260,6 +271,13 @@ function drawHQ(c: Ctx, hq: FactoryScene["hq"]): void {
   rect(c, sx - 3, roofY + 11, tw + 6, 9, C.ink);
   rect(c, sx - 2, roofY + 12, tw + 4, 7, "#283a6c");
   text(c, name, sx, roofY + 13, C.helmetHi);
+  // a star on the roof for every master's certificate
+  if (hq.stars > 0) {
+    const room = hq.w - 26;
+    const pitch = Math.min(7, Math.floor(room / hq.stars));
+    const sx0 = x + 10 + Math.floor((room - pitch * hq.stars) / 2);
+    for (let i = 0; i < hq.stars; i++) star(c, sx0 + i * pitch, roofY + 3);
+  }
   // chimney
   box(c, x + hq.w - 14, roofY - 5, 7, 9, { o: C.ink, l: "#c87860", m: "#a85c48", d: "#7c4030" });
   // flag pole with the streak
@@ -275,6 +293,17 @@ function drawHQ(c: Ctx, hq: FactoryScene["hq"]): void {
   const lv = `LV ${hq.level}`;
   rect(c, x + 3, facadeY + facadeH - 9, textWidth(lv) + 4, 7, C.ink);
   text(c, lv, x + 5, facadeY + facadeH - 8, C.helmetHi);
+}
+
+/** Gold star, 5×5. */
+function star(c: Ctx, x: number, y: number): void {
+  px(c, x + 2, y, C.goldHi);
+  rect(c, x + 1, y + 1, 3, 1, C.gold);
+  rect(c, x, y + 2, 5, 1, C.gold);
+  px(c, x + 2, y + 2, C.goldHi);
+  rect(c, x + 1, y + 3, 3, 1, C.goldLo);
+  px(c, x + 1, y + 4, C.goldLo);
+  px(c, x + 3, y + 4, C.goldLo);
 }
 
 function drawLot(c: Ctx, lot: FactoryScene["lot"]): void {
@@ -501,6 +530,13 @@ function drawDynamic(c: Ctx, s: FactoryScene, t: number, top: number, bottom: nu
     }
   }
 
+  // moving parts of the buildings: train, race cars, helicopter, steam
+  for (const b of s.buildings) if (visible(b.y - 16, b.h + 16)) animateBuilding(c, b, t);
+  for (const d of s.decor) {
+    if (d.kind === "combopress" && visible(d.y, 22)) drawComboPress(c, d.x, d.y, d.v, t);
+    else if (d.kind === "clock" && visible(d.y, 22)) drawClockHands(c, d.x, d.y, new Date());
+  }
+
   // stations
   for (const st of s.stations) {
     if (!visible(st.y - 12, st.h + 12)) continue;
@@ -526,7 +562,7 @@ function drawDynamic(c: Ctx, s: FactoryScene, t: number, top: number, bottom: nu
       list.push({ z: w.y, f: () => c.drawImage(SPR.forklift(!goingRight, loaded), x, w.y - 10) });
     } else {
       const facing: Facing = goingRight ? "right" : "left";
-      const spr = w.who === "boss" ? SPR.boss(facing, step) : SPR.worker(facing, step);
+      const spr = w.who === "boss" ? SPR.boss(facing, step) : w.who === "trainee" ? SPR.trainee(facing, step) : SPR.worker(facing, step);
       list.push({ z: w.y, f: () => c.drawImage(spr, x, w.y - 16) });
     }
   }
@@ -624,24 +660,37 @@ function mist(c: Ctx, x: number, y: number, t: number, n: number): void {
   }
 }
 
-/** One vehicle per lane at a time, so nothing ever meets head-on or overlaps. */
+/**
+ * Road traffic. All vehicles in a lane drive at the same speed, spaced along a loop
+ * longer than the road, so nothing ever overlaps or meets head-on. Each slot is a car,
+ * one of the factory's own car transporters (more with every truck in the fleet), or
+ * empty; it changes only while off screen.
+ */
 function drawTrucks(c: Ctx, s: FactoryScene, t: number): void {
+  const fleet = s.fleet;
+  const loop = s.w + 150;
+  const slots = Math.min(Math.floor(loop / 66), 2 + Math.ceil(fleet / 2));
+  const spacing = loop / slots;
+  const truckShare = fleet === 0 ? 0 : Math.min(0.75, 0.25 + 0.07 * fleet);
+  const empty = fleet === 0 ? 0.3 : 0.15;
   s.roads.forEach((r, ri) => {
     LANES.forEach((lane, li) => {
-      const period = 9 + ri * 3 + li * 4;
-      const clock = t + ri * 4 + li * 7;
-      const k = Math.floor(clock / period);
-      const p = (clock % period) / period;
-      const truck = k % 3 === 0;
-      const len = s.w + (truck ? 56 : 20);
-      const dist = p * len * (truck ? 1.5 : 2.2);
-      if (dist > len) return;
-      const w = truck ? 52 : 16;
-      const x = lane.left ? Math.round(s.w - dist) : Math.round(dist - w);
-      const spr = truck
-        ? SPR.truck(7 - li * 6, lane.left, (ri + li + k) % 2 ? [1, 5] : [0, 2])
-        : SPR.car((k * 3 + li * 5 + ri) % 10, lane.left ? "left" : "right");
-      c.drawImage(spr, x, r.y + lane.dy + (truck ? 0 : 1));
+      const speed = 24 + li * 5 + ri * 3;
+      for (let i = 0; i < slots; i++) {
+        const d = t * speed + i * spacing + ri * 97 + li * 41;
+        const lap = Math.floor(d / loop);
+        const pos = d - lap * loop;
+        const roll = noise(i * 13 + li, lap * 7 + ri, 77);
+        if (roll < empty) continue;
+        const truck = roll < empty + truckShare;
+        const w = truck ? 52 : 16;
+        const x = lane.left ? Math.round(s.w + 20 - pos) : Math.round(pos - w - 20);
+        if (x > s.w || x + w < 0) continue;
+        const spr = truck
+          ? SPR.truck(6, lane.left, (lap + i) % 2 ? [1, 5] : [0, 2])
+          : SPR.car((lap * 3 + i * 5 + li + ri) % 10, lane.left ? "left" : "right");
+        c.drawImage(spr, x, r.y + lane.dy + (truck ? 0 : 1));
+      }
     });
   });
 }
@@ -682,6 +731,7 @@ function drawNight(c: Ctx, s: FactoryScene, t: number): void {
     rect(c, w.x + 1, w.y + 1, 6, 5, "#ffe9a0");
     rect(c, w.x + 4, w.y + 1, 1, 5, "#c8a860");
   }
+  for (const b of s.buildings) buildingLights(c, b, t);
   c.globalCompositeOperation = "lighter";
   for (const d of s.decor) {
     if (d.kind !== "lamp") continue;

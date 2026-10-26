@@ -167,10 +167,10 @@ function UpgradeShop() {
   );
 }
 
-export function ShopView() {
+export function ShopView({ initial = "upgrades" }: { initial?: "plans" | "upgrades" }) {
   const s = useGame();
   const catalog = useCatalog();
-  const [tab, setTab] = useState<"plans" | "upgrades">("upgrades");
+  const [tab, setTab] = useState<"plans" | "upgrades">(initial);
   const [hall, setHall] = useState<HallId | "all" | "custom">("all");
   const [topic, setTopic] = useState<TopicId | "all">("all");
   const [level, setLevel] = useState<Level | "all">("all");
@@ -281,12 +281,14 @@ export function ShopView() {
           </section>
         </>
       ) : (
-        <UpgradeShop />
+        <>
+          <UpgradeShop />
+          <p className="small muted" style={{ textAlign: "center" }}>
+            <Icon name="spark" size={14} /> Tipp: Am meisten bringt der Werkzeugkasten am Anfang: jede Stufe gibt +1 Taler pro Satz.
+          </p>
+        </>
       )}
       {info ? <ItemSheet it={info} onClose={() => setInfo(null)} /> : null}
-      <p className="small muted" style={{ textAlign: "center" }}>
-        <Icon name="spark" size={14} /> Tipp: Am meisten bringt der Werkzeugkasten am Anfang: jede Stufe gibt +1 Taler pro Satz.
-      </p>
     </>
   );
 }

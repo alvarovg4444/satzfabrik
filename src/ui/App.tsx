@@ -72,13 +72,15 @@ export function App() {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [returnTab, setReturnTab] = useState<Tab>("fabrik");
   const [startReq, setStartReq] = useState<StartRequest>({ n: 0 });
+  const [shopTab, setShopTab] = useState<"upgrades" | "plans">("upgrades");
 
   useEffect(() => {
     document.documentElement.lang = "de";
   }, []);
 
-  const go = (t: Tab) => {
+  const go = (t: Tab, shop: "upgrades" | "plans" = "upgrades") => {
     if (t === "settings") setReturnTab(tab === "settings" ? "fabrik" : tab);
+    if (t === "laden") setShopTab(shop);
     setTab(t);
     window.scrollTo({ top: 0 });
   };
@@ -103,8 +105,8 @@ export function App() {
     <div className="app">
       <TopBar onSettings={() => go(tab === "settings" ? returnTab : "settings")} />
       <main className="wrap">
-        {tab === "fabrik" ? <FactoryView onStartShift={() => startShift()} onShop={() => go("laden")} onPractice={(id) => startShift([id])} /> : null}
-        {tab === "laden" ? <ShopView /> : null}
+        {tab === "fabrik" ? <FactoryView onStartShift={() => startShift()} onShop={(t) => go("laden", t)} onPractice={(id) => startShift([id])} /> : null}
+        {tab === "laden" ? <ShopView initial={shopTab} /> : null}
         {/* The shift stays mounted so switching tabs never loses a half-written sentence. */}
         <div hidden={tab !== "schicht"} className="stack">
           <ShiftView startReq={startReq} goFactory={() => go("fabrik")} goDrill={() => go("akkord")} />

@@ -4,7 +4,8 @@ import { HALLS, type Item } from "../content/types";
 import { STAGE_NAMES } from "../engine/srs";
 import { shortName } from "../engine/tasks";
 import { fmt, levelOf } from "../game/economy";
-import { layout, mapInput, type FactoryScene, type Station } from "../pixel/layout";
+import { UPGRADE_BY_ID } from "../game/upgrades";
+import { layout, mapInput, type Building, type FactoryScene, type Station } from "../pixel/layout";
 import { FactoryRenderer, type Hit } from "../pixel/scene";
 import { useCatalog, useGame } from "../store/store";
 import { toast } from "./common";
@@ -75,6 +76,11 @@ function describe(st: Station, catalog: Catalog): string {
   return `${name} · ${stage === 0 ? "Bauplan" : STAGE_NAMES[stage]}${st.due ? " · rostet" : ""}`;
 }
 
+function describeBuilding(b: Building): string {
+  const def = UPGRADE_BY_ID.get(b.id)!;
+  return b.built ? `${def.de}: ${def.effect}` : `Bauplatz: ${def.de} für ${fmt(b.price)} Taler (${def.effect})`;
+}
+
 export function FactoryMap({
   onOpen,
   onOpenRack,
@@ -82,7 +88,7 @@ export function FactoryMap({
 }: {
   onOpen: (it: Item) => void;
   onOpenRack: (items: Item[]) => void;
-  onShop: () => void;
+  onShop: (tab?: "upgrades" | "plans") => void;
 }) {
   const s = useGame();
   const catalog = useCatalog();
@@ -185,7 +191,14 @@ export function FactoryMap({
       }
       case "free":
         toast(`Freier Platz in der ${HALLS[hit.hall!.id].de}. Neue Maschinen bringt die tägliche Lieferung, oder du suchst sie im Lernplan aus.`);
-        onShop();
+        onShop("plans");
+        break;
+      case "building":
+        toast(`${describeBuilding(hit.building!)}.`, 4000);
+        break;
+      case "plot":
+        toast(`${describeBuilding(hit.building!)}. Bauen kannst du im Laden unter Ausbau.`, 4500);
+        onShop("upgrades");
         break;
       case "site":
         toast(`${HALLS[hit.site!.id].de}: wird ab Level ${hit.site!.unlockLevel} gebaut. Du bist Level ${lvl}.`, 4500);
@@ -197,8 +210,8 @@ export function FactoryMap({
       }
       case "hq":
         toast(
-          `Zentrale, Level ${lvl}. ${s.streak.current} Tage Streak, ${fmt(s.stats.sentences)} Sätze gebaut. Alle zwei Level kommt ein Stockwerk dazu.`,
-          5000,
+          `Zentrale, Level ${lvl}: ${s.streak.current} Tage Streak, ${fmt(s.stats.sentences)} Sätze gebaut. Ein Stockwerk mehr gibt es im Laden (Verwaltung aufstocken), einen Stern auf dem Dach für jeden Meisterbrief.`,
+          5500,
         );
         break;
       case "lot":
@@ -212,12 +225,14 @@ export function FactoryMap({
     const hit = hitAt(e);
     const el = e.currentTarget;
     el.style.cursor = hit ? "pointer" : "default";
-    if (hit?.kind !== "station") {
+    const text =
+      hit?.kind === "station" ? describe(hit.station!, catalog) : hit?.kind === "building" || hit?.kind === "plot" ? describeBuilding(hit.building!) : null;
+    if (!text) {
       if (tip) setTip(null);
       return;
     }
     const box = frame.current!.getBoundingClientRect();
-    setTip({ x: e.clientX - box.left, y: e.clientY - box.top, text: describe(hit.station!, catalog) });
+    setTip({ x: e.clientX - box.left, y: e.clientY - box.top, text });
   };
 
   const cards = Object.values(s.cards);

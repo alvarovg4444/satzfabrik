@@ -130,3 +130,57 @@ describe("a very big factory", () => {
     expect(presses.some((p) => p.items.length > 1)).toBe(true);
   });
 });
+
+describe("upgrades on the map", () => {
+  const halls = { satzbau: items(12, "gram", "s"), woerter: items(60, "noun", "w"), verben: items(20, "verb", "v") };
+  const ups = (upgrades: MapInput["upgrades"]) => layout(input(238, halls, { upgrades }));
+
+  it("shows only the plot of the cheapest building before anything is built", () => {
+    const scene = ups({});
+    expect(scene.buildings).toHaveLength(1);
+    expect(scene.buildings[0]).toMatchObject({ id: "kantine", built: false, price: 3000 });
+  });
+
+  it("puts bought buildings on the grounds, without overlaps, above the first walkway", () => {
+    const all = { kantine: 1, wasserturm: 1, parkhaus: 1, ausbildung: 1, solarpark: 1, bahn: 1, teststrecke: 1 };
+    for (const width of [180, 238, 350]) {
+      const scene = layout(input(width, halls, { upgrades: all }));
+      const b = scene.buildings;
+      expect(b.filter((x) => x.built)).toHaveLength(7);
+      expect(b.filter((x) => !x.built).map((x) => x.id)).toEqual(["heliport"]);
+      for (let i = 0; i < b.length; i++) {
+        expect(b[i].x).toBeGreaterThanOrEqual(0);
+        expect(b[i].x + b[i].w).toBeLessThanOrEqual(width);
+        expect(overlaps(b[i], scene.hq) || overlaps(b[i], scene.lot)).toBe(false);
+        expect(b[i].y + b[i].h).toBeLessThanOrEqual(scene.walkways[0].y);
+        for (let j = i + 1; j < b.length; j++) expect(overlaps(b[i], b[j])).toBe(false);
+      }
+    }
+  });
+
+  it("hires visible staff: one worker per hire, forklifts, supervisors, apprentices", () => {
+    const base = ups({}).walks;
+    expect(base.filter((w) => w.who === "worker")).toHaveLength(1);
+    expect(base.some((w) => w.who === "forklift")).toBe(false);
+    const busy = ups({ arbeiter: 9, gabelstapler: 3, schichtleiter: 2, ausbildung: 1 }).walks;
+    expect(busy.filter((w) => w.who === "worker")).toHaveLength(10);
+    expect(busy.filter((w) => w.who === "forklift")).toHaveLength(3);
+    expect(busy.filter((w) => w.who === "boss")).toHaveLength(2);
+    expect(busy.filter((w) => w.who === "trainee")).toHaveLength(2);
+  });
+
+  it("adds HQ floors, roof stars, a yard and trucks", () => {
+    const plain = ups({});
+    const rich = ups({ verwaltung: 3, meisterbrief: 4, werkzeug: 12, kombipresse: 1, akkorduhr: 1, lagerhalle: 2, lkw: 5 });
+    expect(plain.hq.floors).toBe(1);
+    expect(rich.hq.floors).toBe(4);
+    expect(rich.hq.stars).toBe(4);
+    expect(rich.fleet).toBe(5);
+    const kinds = rich.decor.map((d) => d.kind);
+    for (const k of ["shed", "combopress", "clock", "container"] as const) expect(kinds).toContain(k);
+    expect(rich.decor.find((d) => d.kind === "shed")!.v).toBe(1);
+    const yard = rich.decor.filter((d) => d.kind === "shed" || d.kind === "combopress" || d.kind === "container");
+    for (const d of yard) expect(d.y).toBeGreaterThanOrEqual(rich.lot.y + rich.lot.h);
+    expect(rich.walkways[0].y).toBeGreaterThan(Math.max(...yard.map((d) => d.y)));
+  });
+});
