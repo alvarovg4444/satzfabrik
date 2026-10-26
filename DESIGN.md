@@ -261,6 +261,26 @@ app is in dark mode. The list view is still there for screen readers and quick s
   models under ~12B parameters regularly miss errors or flag correct German, which is harmful
   for a learner.
 
+## Writing on a phone
+
+The phone's own keyboard works against a learner: autocorrect turns a wrong ending into a
+right one (or into English) before the corrector sees it, umlauts hide behind long presses,
+and the keyboard resizes the page so the situation scrolls away. On touch screens the game
+therefore brings its own keyboard (`Keyboard.tsx`, editing logic in `keys.ts`):
+
+- The text field keeps focus and caret but asks for no system keyboard (`inputmode="none"`),
+  and the keys type at the caret. Keys act on touch-down and never take the focus; held
+  backspace repeats.
+- QWERTZ with ä, ö, ü and ß, a numbers layer with „ “ €, a capital letter at the start of a
+  sentence (nouns stay the learner's job), double-tap shift for caps lock, and the answer's
+  "Prüfen" as the big key. Hints such as "the target word is missing" appear above the keys.
+- The page keeps its size: the keyboard reports its height (`--kb-h`), the page pads by it,
+  and the task scrolls so the situation sits at the top with the answer box above the keys.
+  It opens after a tap on the box has finished, never during it, so nothing jumps under the
+  finger.
+- Dictation: in the app version the microphone button listens in the page; on claude.ai,
+  where the page has no microphone, it hands over to the phone's keyboard for its microphone.
+
 ## The voice
 
 Reading sentences aloud matters for production practice, and the voices most phones offer

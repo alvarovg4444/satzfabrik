@@ -44,6 +44,11 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
   buildings that grow with every level: wind turbines turn, a freight train and a car carrier
   ship come and go, race cars lap the test track, a plane takes off and, at the very end, a
   rocket launches. Tap anything to see what it is.
+- **A German keyboard in the game.** On phones and tablets, answers and drill forms are typed
+  on the game's own QWERTZ keyboard: ä, ö, ü and ß on their own keys, no autocorrect that hides
+  mistakes, a "Prüfen" key, and a page that does not jump, so the situation stays in view. The
+  microphone button above it dictates, or hands over to the phone's keyboard and its
+  microphone where the page may not listen (claude.ai). It can be switched off in Settings.
 - **A natural German voice on the device.** Corrected sentences, examples and words are read
   aloud by Piper, an open-source neural voice (Thorsten, or Kerstin), running in the browser
   with WebAssembly. One download of about 93 MB, then it works offline. Without it the app

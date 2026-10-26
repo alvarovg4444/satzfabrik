@@ -16,6 +16,7 @@ import { store, useCatalog, useGame, useMeta } from "../store/store";
 import { floatCoins, Icon, SpeakButton, toast } from "./common";
 import { canDictate, confetti, dictate, DICTATION_ERRORS, hasKeyboardDictation, sfx, speak } from "./fx";
 import { ItemDetails } from "./ItemSheet";
+import { Keyboard, useInAppKeyboard, type KeyboardProps } from "./Keyboard";
 
 interface Summary {
   done: number;
@@ -213,32 +214,35 @@ function Prompt({ task, alwaysEnglish }: { task: Task; alwaysEnglish: boolean })
   );
 }
 
-/** While the learner types: the page makes room, and the situation stays in view above the answer. */
-function useWritingMode(box: RefObject<HTMLTextAreaElement | null>) {
+/**
+ * Scrolls so the situation sits at the top of what is visible, unless that would push the
+ * answer box under the keyboard (the phone's, or the in-app one: its height is --kb-h).
+ */
+function keepInView(box: HTMLElement) {
+  const prompt = box.closest(".task-card")?.querySelector<HTMLElement>(".prompt-top");
+  const vv = window.visualViewport;
+  const top = vv?.offsetTop ?? 0;
+  const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb-h")) || 0;
+  const height = (vv?.height ?? window.innerHeight) - kb;
+  const b = box.getBoundingClientRect();
+  let delta = prompt ? prompt.getBoundingClientRect().top - top - 8 : 0;
+  const overflow = b.bottom - delta - (top + height - 8);
+  if (overflow > 0) delta += overflow;
+  if (Math.abs(delta) > 4) window.scrollBy({ top: delta });
+}
+
+/** While the learner types with the phone's keyboard: the page makes room, and the situation stays in view. */
+function useWritingMode(box: RefObject<HTMLTextAreaElement | null>, enabled: boolean) {
   useEffect(() => {
     const el = box.current;
-    if (!el) return;
+    if (!el || !enabled) return;
     let timer = 0;
-    const keepInView = () => {
-      const prompt = el.closest(".task-card")?.querySelector<HTMLElement>(".prompt-top");
-      if (!prompt) return;
-      const vv = window.visualViewport;
-      const top = vv?.offsetTop ?? 0;
-      const height = vv?.height ?? window.innerHeight;
-      const p = prompt.getBoundingClientRect();
-      const b = el.getBoundingClientRect();
-      // Situation at the top of what is visible, unless that pushes the answer box under the keyboard.
-      let delta = p.top - top - 8;
-      const overflow = b.bottom - delta - (top + height - 8);
-      if (overflow > 0) delta += overflow;
-      if (Math.abs(delta) > 4) window.scrollBy({ top: delta });
-    };
     const onFocus = () => {
       // Only phones and tablets: there the keyboard takes half the screen.
       if (!hasKeyboardDictation()) return;
       window.clearTimeout(timer);
       document.documentElement.classList.add("writing");
-      timer = window.setTimeout(keepInView, 350);
+      timer = window.setTimeout(() => keepInView(el), 350);
     };
     // Late, so a tap on "Prüfen" lands before the layout changes back.
     const onBlur = () => {
@@ -246,7 +250,7 @@ function useWritingMode(box: RefObject<HTMLTextAreaElement | null>) {
       timer = window.setTimeout(() => document.documentElement.classList.remove("writing"), 300);
     };
     const onResize = () => {
-      if (document.activeElement === el) keepInView();
+      if (document.activeElement === el) keepInView(el);
     };
     el.addEventListener("focus", onFocus);
     el.addEventListener("blur", onBlur);
@@ -259,7 +263,7 @@ function useWritingMode(box: RefObject<HTMLTextAreaElement | null>) {
       window.visualViewport?.removeEventListener("resize", onResize);
       document.documentElement.classList.remove("writing");
     };
-  }, [box]);
+  }, [box, enabled]);
 }
 
 function Answer({
@@ -268,20 +272,36 @@ function Answer({
   minWords,
   onSubmit,
   autoFocus,
+  active = true,
+  notice,
 }: {
   value: string;
   onChange: (v: string) => void;
   minWords?: number;
   onSubmit: () => void;
   autoFocus?: boolean;
+  /** Typing is possible now (not while the corrector checks). */
+  active?: boolean;
+  /** A message for the learner while typing, e.g. that a target word is missing. */
+  notice?: KeyboardProps["notice"];
 }) {
   const [listening, setListening] = useState(false);
   const [micOk, setMicOk] = useState(canDictate);
   const stopRef = useRef<(() => void) | null>(null);
   const baseRef = useRef("");
   const boxRef = useRef<HTMLTextAreaElement>(null);
-  useWritingMode(boxRef);
+  const inApp = useInAppKeyboard();
+  // the in-app keyboard stays open until hidden; a tap on the box brings it back
+  const [open, setOpen] = useState(!!autoFocus);
+  // the phone's own keyboard, for its microphone, until the box loses focus
+  const [system, setSystem] = useState(false);
+  const ownKeys = inApp && !system;
+  useWritingMode(boxRef, !ownKeys);
   useEffect(() => () => stopRef.current?.(), []);
+  // after a check, read the result first: the keyboard waits for a tap
+  useEffect(() => {
+    if (!active) setOpen(false);
+  }, [active]);
   const words = wordCount(value);
   const mic = () => {
     if (listening) {
@@ -295,11 +315,25 @@ function Answer({
       (err) => {
         setListening(false);
         if (!err || err === "no-speech" || err === "aborted") return;
-        const keyboard = hasKeyboardDictation() ? " Tipp: Tippe auf das Mikrofon deiner Tastatur und sprich Deutsch." : "";
+        const keyboard = ownKeys
+          ? " Tippe noch einmal auf „Diktieren“: Dann öffnet sich die Handy-Tastatur mit ihrem Mikrofon."
+          : hasKeyboardDictation()
+            ? " Tipp: Tippe auf das Mikrofon deiner Tastatur und sprich Deutsch."
+            : "";
         toast(`${DICTATION_ERRORS[err] ?? "Diktieren hat nicht geklappt."}${keyboard}`, 6000);
         if (err === "not-allowed" || err === "service-not-allowed" || err === "language-not-supported") setMicOk(false);
       },
     );
+  };
+  // Dictation where the page may not listen: hand over to the phone's keyboard and its microphone.
+  const phoneKeyboard = () => {
+    const el = boxRef.current;
+    if (!el) return;
+    setSystem(true);
+    el.inputMode = "text";
+    el.blur();
+    el.focus();
+    toast("Tippe auf das Mikrofon der Tastatur und sprich Deutsch. Danach geht es mit der Satzfabrik-Tastatur weiter.", 6000);
   };
   return (
     <div className="stack" style={{ gap: 6 }}>
@@ -309,12 +343,22 @@ function Answer({
         className="input"
         lang="de"
         spellCheck={false}
-        autoCapitalize="sentences"
+        autoCapitalize={ownKeys ? "off" : "sentences"}
+        autoCorrect={ownKeys ? "off" : undefined}
         autoComplete="off"
+        inputMode={ownKeys ? "none" : undefined}
         placeholder="Schreib hier auf Deutsch …"
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}
+        // after the tap, not during it: the layout moves when the keyboard opens, and a tap
+        // still in progress would land on whatever moved under the finger
+        onClick={() => ownKeys && active && setOpen(true)}
+        onBlur={() => {
+          if (!system) return;
+          setSystem(false);
+          setOpen(false);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -326,7 +370,13 @@ function Answer({
         <span className="wordcount">
           {words} Wörter{minWords ? ` · Ziel ${minWords}+` : ""}
         </span>
-        {micOk ? (
+        {ownKeys ? (
+          !open && active ? (
+            <button type="button" className="btn small ghost" onClick={() => setOpen(true)}>
+              <Icon name="keyboard" size={16} /> Tastatur
+            </button>
+          ) : null
+        ) : micOk ? (
           <button type="button" className={`btn small ${listening ? "primary" : "ghost"}`} onClick={mic} aria-pressed={listening}>
             <Icon name="mic" size={16} /> {listening ? "Fertig" : "Sprechen"}
           </button>
@@ -336,6 +386,25 @@ function Answer({
           </span>
         ) : null}
       </div>
+      {ownKeys && open && active ? (
+        <Keyboard
+          field={boxRef}
+          value={value}
+          onChange={(v) => {
+            if (listening) stopRef.current?.();
+            onChange(v);
+          }}
+          action={{ label: "Prüfen", onPress: onSubmit, disabled: !value.trim() }}
+          mic={{ label: micOk ? "Sprechen" : "Diktieren", on: listening, onPress: micOk ? mic : phoneKeyboard }}
+          notice={notice}
+          onHide={() => {
+            setOpen(false);
+            boxRef.current?.blur();
+          }}
+          writing
+          onShown={() => boxRef.current && keepInView(boxRef.current)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -546,7 +615,9 @@ function Feedback({
       {rework !== null ? (
         <div className="card stack">
           <span className="eyebrow">Nacharbeit: repariere deinen Satz selbst</span>
-          {reworkState !== "ok" ? <Answer value={rework} onChange={setRework} onSubmit={tryRework} autoFocus /> : null}
+          {reworkState !== "ok" ? (
+            <Answer value={rework} onChange={setRework} onSubmit={tryRework} autoFocus active={reworkState !== "checking"} />
+          ) : null}
           {reworkState === "checking" ? (
             <div className="qc" role="status">
               <Icon name="spark" />
@@ -1123,7 +1194,15 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
 
         {phase.k === "task" || phase.k === "grading" ? (
           <>
-            <Answer value={answer} onChange={setAnswer} minWords={task.minWords} onSubmit={() => void submit()} autoFocus />
+            <Answer
+              value={answer}
+              onChange={setAnswer}
+              minWords={task.minWords}
+              onSubmit={() => void submit()}
+              autoFocus
+              active={phase.k === "task"}
+              notice={warn ? { text: warn, button: { label: "Trotzdem prüfen", onPress: () => void submit(true) } } : null}
+            />
             {warn ? (
               <div className="row" role="alert">
                 <span className="small" style={{ color: "var(--brick)" }}>

@@ -178,6 +178,8 @@ const DICTATION_KEY = "satzfabrik.dictation";
  */
 export function canDictate(): boolean {
   if (typeof window === "undefined" || !recognitionCtor()) return false;
+  // claude.ai shows the page in a frame without the microphone
+  if (typeof window.claude?.use === "function") return false;
   try {
     if (localStorage.getItem(DICTATION_KEY) === "blocked") return false;
   } catch {

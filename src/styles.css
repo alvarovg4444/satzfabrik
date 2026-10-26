@@ -27,6 +27,22 @@
   --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --nav-h: 64px;
+  /* outlines of buttons and bars: ink in the light theme, near-black in the dark one */
+  --edge: #1f2428;
+  /* the dark hero card, toasts and tooltips, and the chosen option of a switch */
+  --hero-bg: #1f2428;
+  --hero-ink: #f8f6f1;
+  --hero-line: #1f2428;
+  --pop-bg: #1f2428;
+  --pop-ink: #f8f6f1;
+  --pop-line: #1f2428;
+  --picked-bg: #1f2428;
+  --picked-ink: #f8f6f1;
+  /* the in-app keyboard */
+  --kb-bg: #d8d3c9;
+  --kb-key: #fbfaf7;
+  --kb-fn: #b9b3a7;
+  --kb-shade: #8e887c;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -50,6 +66,19 @@
     --bad: #e07a5f;
     --gold: #f0c541;
     --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 8px 22px -12px rgba(0, 0, 0, 0.8);
+    --edge: #06090b;
+    --hero-bg: #0d1215;
+    --hero-ink: #eef0ee;
+    --hero-line: #2c363d;
+    --pop-bg: #2a3339;
+    --pop-ink: #eef0ee;
+    --pop-line: #3b464e;
+    --picked-bg: #3b464e;
+    --picked-ink: #ffffff;
+    --kb-bg: #0e1215;
+    --kb-key: #2c353c;
+    --kb-fn: #1b2227;
+    --kb-shade: #040607;
     color-scheme: dark;
   }
 }
@@ -74,6 +103,19 @@
   --bad: #e07a5f;
   --gold: #f0c541;
   --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 8px 22px -12px rgba(0, 0, 0, 0.8);
+  --edge: #06090b;
+  --hero-bg: #0d1215;
+  --hero-ink: #eef0ee;
+  --hero-line: #2c363d;
+  --pop-bg: #2a3339;
+  --pop-ink: #eef0ee;
+  --pop-line: #3b464e;
+  --picked-bg: #3b464e;
+  --picked-ink: #ffffff;
+  --kb-bg: #0e1215;
+  --kb-key: #2c353c;
+  --kb-fn: #1b2227;
+  --kb-shade: #040607;
   color-scheme: dark;
 }
 
@@ -191,7 +233,7 @@ main.wrap {
   top: env(safe-area-inset-top, 0px);
   z-index: 20;
   background: var(--surface);
-  border-bottom: 2px solid var(--ink);
+  border-bottom: 2px solid var(--edge);
 }
 .topbar .wrap {
   display: flex;
@@ -295,7 +337,7 @@ main.wrap {
   bottom: 0;
   z-index: 25;
   background: var(--surface);
-  border-top: 2px solid var(--ink);
+  border-top: 2px solid var(--edge);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .nav .wrap {
@@ -338,7 +380,7 @@ main.wrap {
   border-radius: 50%;
   background: var(--signal);
   color: var(--signal-ink);
-  border: 2px solid var(--ink);
+  border: 2px solid var(--edge);
   display: grid;
   place-items: center;
   box-shadow: var(--shadow);
@@ -392,7 +434,7 @@ main.wrap {
   flex-wrap: wrap;
 }
 .btn {
-  border: 2px solid var(--ink);
+  border: 2px solid var(--edge);
   background: var(--surface);
   color: var(--ink);
   padding: 10px 16px;
@@ -404,11 +446,11 @@ main.wrap {
   gap: 8px;
   min-height: 44px;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
-  box-shadow: 0 3px 0 var(--ink);
+  box-shadow: 0 3px 0 var(--edge);
 }
 .btn:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--ink);
+  box-shadow: 0 1px 0 var(--edge);
 }
 .btn.primary {
   background: var(--signal);
@@ -451,8 +493,8 @@ main.wrap {
   font-size: 0.88rem;
 }
 .seg button[aria-pressed="true"] {
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--picked-bg);
+  color: var(--picked-ink);
 }
 .chip {
   display: inline-flex;
@@ -465,9 +507,9 @@ main.wrap {
   background: var(--surface-2);
 }
 .chip.on {
-  background: var(--ink);
-  color: var(--surface);
-  border-color: var(--ink);
+  background: var(--picked-bg);
+  color: var(--picked-ink);
+  border-color: var(--picked-bg);
 }
 .field {
   display: flex;
@@ -518,8 +560,9 @@ textarea.input {
 
 /* --- factory floor ------------------------------------------------------- */
 .hero {
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--hero-bg);
+  color: var(--hero-ink);
+  border: 1.5px solid var(--hero-line);
   border-radius: var(--radius);
   padding: 18px;
   display: grid;
@@ -547,7 +590,7 @@ textarea.input {
   font-variant-numeric: tabular-nums;
 }
 .hero .muted {
-  color: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: color-mix(in srgb, var(--hero-ink) 70%, transparent);
 }
 .hero .btn {
   border-color: var(--signal);
@@ -575,7 +618,7 @@ textarea.input {
   color: var(--ink-3);
 }
 .hero .stat .l {
-  color: color-mix(in srgb, var(--surface) 60%, transparent);
+  color: color-mix(in srgb, var(--hero-ink) 60%, transparent);
 }
 
 /* level estimate */
@@ -611,7 +654,7 @@ textarea.input {
   position: relative;
   display: flex;
   justify-content: center;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--edge);
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--map-grass);
@@ -643,8 +686,9 @@ textarea.input {
   max-width: 240px;
   padding: 5px 9px;
   border-radius: 8px;
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--pop-bg);
+  color: var(--pop-ink);
+  border: 1px solid var(--pop-line);
   font-size: 0.82rem;
   line-height: 1.3;
   white-space: nowrap;
@@ -671,7 +715,7 @@ textarea.input {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  border-bottom: 2px solid var(--ink);
+  border-bottom: 2px solid var(--edge);
   padding-bottom: 6px;
   flex-wrap: wrap;
 }
@@ -888,8 +932,8 @@ textarea.input {
   cursor: pointer;
 }
 .en-toggle[aria-pressed="true"] {
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--picked-bg);
+  color: var(--picked-ink);
 }
 .mic-hint {
   display: inline-flex;
@@ -1302,7 +1346,7 @@ textarea.input {
   max-height: 88vh;
   overflow: auto;
   border-radius: 18px 18px 0 0;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--edge);
   border-bottom: 0;
   padding: 18px max(18px, env(safe-area-inset-right, 0px)) calc(22px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
   display: flex;
@@ -1316,7 +1360,7 @@ textarea.input {
   }
   .sheet {
     border-radius: 18px;
-    border-bottom: 2px solid var(--ink);
+    border-bottom: 2px solid var(--edge);
   }
 }
 .toasts {
@@ -1334,8 +1378,9 @@ textarea.input {
 }
 .toast {
   pointer-events: auto;
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--pop-bg);
+  color: var(--pop-ink);
+  border: 1px solid var(--pop-line);
   border-radius: 12px;
   padding: 10px 14px;
   box-shadow: var(--shadow);
@@ -1535,4 +1580,159 @@ textarea.input {
   background: var(--ok-soft);
   color: var(--ok);
   white-space: nowrap;
+}
+
+/* --- in-app keyboard -------------------------------------------------------- */
+.kb-keys {
+  touch-action: none;
+}
+.kb {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  padding: 4px max(3px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(3px, env(safe-area-inset-left, 0px));
+  background: var(--kb-bg);
+  border-top: 1px solid var(--line);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  animation: kb-up 0.16s ease-out;
+}
+.kb > * {
+  max-width: 640px;
+  margin-inline: auto;
+}
+.kb-row {
+  display: flex;
+  gap: 5px;
+  margin-top: 9px;
+}
+.kb-key {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: var(--kb-key);
+  color: var(--ink);
+  box-shadow: 0 1px 0 var(--kb-shade);
+  font: 400 1.3rem/1 var(--font-body);
+  position: relative;
+}
+.kb-key.fn {
+  background: var(--kb-fn);
+  font-size: 1.05rem;
+}
+.kb-key.wide {
+  flex-grow: 1.45;
+}
+.kb-key.space {
+  flex-grow: 4.6;
+  font-size: 0.85rem;
+  color: var(--ink-3);
+}
+.kb-key.action {
+  flex-grow: 2.4;
+  background: var(--signal);
+  color: var(--signal-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.kb-key.action:disabled {
+  opacity: 0.45;
+}
+.kb-key.fn.active {
+  background: var(--kb-key);
+}
+.kb-key.fn.lock {
+  box-shadow: inset 0 -3px 0 var(--steel), 0 1px 0 var(--kb-shade);
+}
+.kb-key.down {
+  background: var(--kb-fn);
+}
+.kb-key.fn.down,
+.kb-key.action.down {
+  filter: brightness(0.92);
+}
+/* the letter pops up above the finger, as on a phone keyboard */
+.kb-key[data-show].down::after {
+  content: attr(data-show);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  min-width: 46px;
+  padding: 9px 4px;
+  border-radius: 10px;
+  background: var(--kb-key);
+  color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-size: 1.7rem;
+  pointer-events: none;
+}
+.kb-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 34px;
+}
+.kb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.kb-chip.on {
+  background: var(--signal);
+  color: var(--signal-ink);
+}
+.kb-chip:active {
+  background: var(--kb-fn);
+}
+.kb-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 9px;
+  background: var(--brick-soft);
+  color: var(--ink);
+  font-size: 0.86rem;
+  line-height: 1.3;
+}
+.kb-notice .kb-chip {
+  flex: none;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.kb-open main.wrap {
+  padding-bottom: calc(var(--kb-h, 290px) + 16px);
+}
+.kb-open .nav {
+  display: none;
+}
+@keyframes kb-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kb {
+    animation: none;
+  }
 }

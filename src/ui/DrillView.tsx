@@ -7,6 +7,7 @@ import { drillReward, drillSeconds, fmt } from "../game/economy";
 import { store, useCatalog, useGame } from "../store/store";
 import { floatCoins, Icon, toast } from "./common";
 import { sfx } from "./fx";
+import { Keyboard, useInAppKeyboard } from "./Keyboard";
 
 type Phase = { k: "idle" } | { k: "run" } | { k: "done" };
 
@@ -25,6 +26,9 @@ export function DrillView() {
   const finished = useRef(true);
   const scoreRef = useRef(score);
   const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inApp = useInAppKeyboard();
+  const [keys, setKeys] = useState(true);
   const seconds = drillSeconds(s);
 
   const owned = useMemo<Item[]>(
@@ -174,17 +178,21 @@ export function DrillView() {
             }}
           >
             <input
+              ref={inputRef}
               id="drill-answer"
               className="input"
               style={{ flex: 1 }}
               lang="de"
               autoComplete="off"
               autoCapitalize="none"
+              autoCorrect="off"
+              inputMode={inApp ? "none" : undefined}
               spellCheck={false}
               autoFocus
               value={typed}
               disabled={!!flash}
               onChange={(e) => setTyped(e.target.value)}
+              onClick={() => setKeys(true)}
               placeholder="Antwort"
             />
             <button type="submit" className="btn primary" disabled={!!flash || !typed.trim()}>
@@ -192,6 +200,16 @@ export function DrillView() {
             </button>
           </form>
         )}
+        {inApp && keys && !q.options ? (
+          <Keyboard
+            field={inputRef}
+            value={typed}
+            onChange={setTyped}
+            action={{ label: "OK", onPress: () => answer(typed), disabled: !!flash || !typed.trim() }}
+            onHide={() => setKeys(false)}
+            sentences={false}
+          />
+        ) : null}
         {flash ? (
           <p className="small" style={{ textAlign: "center", color: flash.ok ? "var(--ok)" : "var(--brick)" }}>
             {flash.ok ? "Richtig!" : `Richtig wäre: ${flash.answer}`} · {flash.explain}

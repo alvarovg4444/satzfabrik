@@ -27,8 +27,13 @@ export interface Settings {
   /** Read corrected sentences aloud automatically. */
   autoSpeak: boolean;
   speechRate: number;
-  /** voiceURI of the German voice to read with; "" picks the most natural one installed. */
+  /**
+   * Voice to read with: "piper:<id>" for a neural voice on the device, else the voiceURI of a
+   * system voice ("" picks the most natural one installed).
+   */
   voice: string;
+  /** On phones and tablets, write with the in-app German keyboard instead of the system's. */
+  keyboard: boolean;
   /** Let the AI write fresh situations for each shift. */
   freshTasks: boolean;
   ai: AISettings;
@@ -113,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSpeak: false,
   speechRate: 0.95,
   voice: "",
+  keyboard: true,
   freshTasks: true,
   ai: {
     preferred: "auto",

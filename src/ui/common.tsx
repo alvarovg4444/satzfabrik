@@ -18,7 +18,9 @@ type IconName =
   | "close"
   | "arrow"
   | "spark"
-  | "book";
+  | "book"
+  | "down"
+  | "keyboard";
 
 const PATHS: Record<IconName, string> = {
   factory: "M3 21V10l5 3V10l5 3V7l5 3v11H3zm4-4h2m4 0h2",
@@ -37,6 +39,8 @@ const PATHS: Record<IconName, string> = {
   arrow: "M5 12h14m-6-6 6 6-6 6",
   spark: "M12 3v4m0 10v4m9-9h-4M7 12H3m14.5-6.5-2.8 2.8M9.3 14.7l-2.8 2.8m11 0-2.8-2.8M9.3 9.3 6.5 6.5",
   book: "M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zm0 14V5",
+  down: "M6 9l6 6 6-6",
+  keyboard: "M3 6h18v12H3V6zm4 4h0m4 0h0m4 0h0m-8 4h10",
 };
 
 export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {

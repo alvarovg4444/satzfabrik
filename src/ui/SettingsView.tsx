@@ -374,6 +374,15 @@ function LearnSection() {
         <span>Englische Übersetzung immer zeigen (sonst: Situation antippen)</span>
         <input id="english" type="checkbox" checked={s.settings.alwaysEnglish} onChange={(e) => patchSettings({ alwaysEnglish: e.target.checked })} />
       </label>
+      <label className="toggle" htmlFor="keyboard">
+        <span>
+          Satzfabrik-Tastatur zum Schreiben
+          <span className="small muted" style={{ display: "block" }}>
+            Auf Handy und Tablet: mit ä, ö, ü und ß, ohne Autokorrektur, und die Aufgabe bleibt sichtbar. Aus: die Tastatur des Geräts.
+          </span>
+        </span>
+        <input id="keyboard" type="checkbox" checked={s.settings.keyboard} onChange={(e) => patchSettings({ keyboard: e.target.checked })} />
+      </label>
       <label className="toggle" htmlFor="speak">
         <span>Korrigierte Sätze automatisch vorlesen</span>
         <input id="speak" type="checkbox" checked={s.settings.autoSpeak} onChange={(e) => patchSettings({ autoSpeak: e.target.checked })} />
