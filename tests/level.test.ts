@@ -91,6 +91,7 @@ function catalogOf(items: Item[]): Catalog {
     inHall: (h) => items.filter((i) => i.hall === h),
     scenarios: [{ id: "s.1", topic: "alltag", de: "Du bist zu Hause.", en: "You are at home." }],
     scenariosFor: () => [{ id: "s.1", topic: "alltag", de: "Du bist zu Hause.", en: "You are at home." }],
+    situationsOf: () => [],
   };
 }
 

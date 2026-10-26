@@ -4,6 +4,7 @@ import { GRAMMAR_A1, GRAMMAR_B1_EXTRA } from "./grammar-extra";
 import { GRAMMAR_FAELLE } from "./grammar-faelle";
 import { GRAMMAR_SATZBAU } from "./grammar-satzbau";
 import { GRAMMAR_VERBEN } from "./grammar-verben";
+import ITEM_SITUATIONS from "./item-situations.json";
 import { NOUNS } from "./nouns";
 import { SCENARIOS } from "./scenarios";
 import type { GramItem, HallId, Item, Scenario, TopicId } from "./types";
@@ -44,6 +45,20 @@ export interface Catalog {
   inHall(hall: HallId): Item[];
   scenarios: Scenario[];
   scenariosFor(topic: TopicId | undefined): Scenario[];
+  /** Situations written for this one word or structure ([German, English] pairs), if any. */
+  situationsOf(id: string): Scenario[];
+}
+
+/** Two situations per item, written for that item: [[de, en], [de, en]] by id. */
+const OWN = ITEM_SITUATIONS as Record<string, [string, string][]>;
+const ownCache = new Map<string, Scenario[]>();
+function situationsOf(id: string): Scenario[] {
+  let list = ownCache.get(id);
+  if (!list) {
+    list = (OWN[id] ?? []).map(([de, en], i) => ({ id: `${id}#${i}`, topic: "alltag", de, en }));
+    ownCache.set(id, list);
+  }
+  return list;
 }
 
 const byTopic = new Map<TopicId, Scenario[]>();
@@ -69,5 +84,6 @@ export function makeCatalog(custom: Item[]): Catalog {
     inHall: (hall) => byHall.get(hall) ?? [],
     scenarios: SCENARIOS,
     scenariosFor: (topic) => (topic && byTopic.get(topic)) || SCENARIOS,
+    situationsOf,
   };
 }

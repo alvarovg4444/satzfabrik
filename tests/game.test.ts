@@ -42,6 +42,7 @@ vi.mock("../src/content/catalog", () => {
     inHall: (h: string) => items.filter((i) => i.hall === h),
     scenarios,
     scenariosFor: () => scenarios,
+    situationsOf: () => [],
   });
   return { BUILTIN_ITEMS: items, GRAMMAR: items.filter((i) => i.kind === "gram"), SCENARIOS: scenarios, makeCatalog };
 });

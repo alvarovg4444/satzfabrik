@@ -91,7 +91,10 @@ export function cueFor(it: Item, stage: number): Cue {
   }
 }
 
+/** A situation written for this item if there is one, else one of its topic's. */
 function scenarioFor(it: Item, catalog: Catalog, seed: number): Scenario {
+  const own = catalog.situationsOf(it.id);
+  if (own.length) return pick(own, rng(seed));
   const list = catalog.scenariosFor(it.kind === "gram" ? undefined : it.topic);
   return pick(list, rng(seed));
 }
