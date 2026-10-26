@@ -261,6 +261,32 @@ app is in dark mode. The list view is still there for screen readers and quick s
   models under ~12B parameters regularly miss errors or flag correct German, which is harmful
   for a learner.
 
+## The voice
+
+Reading sentences aloud matters for production practice, and the voices most phones offer
+to web pages are the robotic "compact" ones. The app version therefore brings its own:
+**Piper**, open-source neural text-to-speech, running entirely on the device.
+
+- A web worker loads the ONNX runtime (WebAssembly, single thread, so no special server
+  headers are needed) and espeak-ng's phonemizer (`piper_phonemize`, WebAssembly) from
+  jsDelivr, and the voice model from the Piper voices repository on Hugging Face, pinned to
+  one revision. Everything goes into Cache Storage, so after the first download (about 93 MB:
+  63 MB voice, 30 MB engine) it works offline. Nothing downloads without a tap.
+- Text becomes phonemes, phonemes become the voice's own ids (sounds a voice does not know,
+  like the combining cedilla of "ich" in older voices, are left out, as Piper does; joining
+  them into "ç" made Kerstin's "ich" sound like "ihr"), and each sentence is synthesized and
+  played as soon as it is ready, so long corrections start speaking after the first sentence.
+  Recent sentences are kept as audio, so a second tap plays at once.
+- Voices: Thorsten (male, the clearest) and Kerstin (female). Measured by transcribing eight
+  test sentences with Whisper: Thorsten 1 % word errors, Kerstin 3 %. Ramona, Eva and the
+  236-speaker MLS voice were less clear (8 to 23 %) and are not offered.
+  Thorsten's high-quality model may sound slightly better, but it ran at half real-time
+  speed in tests, too slow for a phone.
+- On claude.ai the page may only load code from a few approved sources, so there the app
+  uses the device's voices (picking the most natural one by name) and points to the app
+  version. Larger models such as Qwen3-TTS or Chatterbox (what tools like Voicebox run) sound
+  more lifelike, but they need a desktop GPU and a local server, which a phone cannot reach.
+
 ## Next steps
 
 - **Conversation hall:** short role-plays with characters (landlord, doctor, colleague) that

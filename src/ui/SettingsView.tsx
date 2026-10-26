@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { gradeAnswer } from "../ai/corrector";
 import { EXPLAIN_LANGS, type ExplainLang } from "../ai/prompts";
 import { AIError, ANTHROPIC_MODELS, type AISettings, type ProviderId } from "../ai/providers";
@@ -8,8 +8,11 @@ import type { Task } from "../engine/tasks";
 import { migrate, newGame, type Settings } from "../game/state";
 import { clearLocal, MAX_CUSTOM } from "../store/persist";
 import { store, useCatalog, useGame, useMeta } from "../store/store";
-import { toast } from "./common";
-import { canSpeak, germanVoices, onVoicesChanged, setSound, speak, voiceScore } from "./fx";
+import { Icon, toast } from "./common";
+import { canSpeak, canSpeakSystem, germanVoices, onVoicesChanged, setSound, speak, voiceScore } from "./fx";
+import { APP_URL, canPromptInstall, isAppBuild, isIOS, isStandalone, onInstallChange, promptInstall } from "./install";
+import { loadVoice, neuralState, neuralSupported, primeAudio, refreshInstalled, removeVoice, subscribeNeural } from "./neural";
+import { NEURAL_VOICES, neuralId, PIPER_PREFIX, sampleUrl, voiceById } from "./piper";
 
 function patchSettings(p: Partial<Settings>) {
   store.update((d) => {
@@ -170,7 +173,80 @@ function AISection() {
   );
 }
 
-/** Pick the German voice; natural ones first. Better voices are free downloads on most devices. */
+const SAMPLE = "Hallo! Hast du heute Abend Zeit? Wir könnten zusammen kochen.";
+
+/** Neural voices that run on this device: download once, then they work offline. */
+function NeuralVoices() {
+  const s = useGame();
+  const n = useSyncExternalStore(subscribeNeural, neuralState, neuralState);
+  const chosen = neuralId(s.settings.voice);
+  useEffect(() => {
+    void refreshInstalled();
+  }, []);
+  const install = async (id: string) => {
+    primeAudio();
+    if (await loadVoice(id, true)) {
+      patchSettings({ voice: PIPER_PREFIX + id });
+      toast("Stimme geladen. Sie funktioniert jetzt auch offline.");
+      void speak(SAMPLE, s.settings.speechRate, PIPER_PREFIX + id);
+    } else toast(neuralState().error || "Laden hat nicht geklappt. Bist du online?");
+  };
+  const preview = (id: string) => {
+    if (n.installed.includes(id)) return void speak(SAMPLE, s.settings.speechRate, PIPER_PREFIX + id);
+    const v = voiceById(id);
+    if (v) void new Audio(sampleUrl(v)).play().catch(() => toast("Hörprobe braucht Internet."));
+  };
+  const pct = n.total ? Math.min(100, Math.round((n.loaded / n.total) * 100)) : 0;
+  return (
+    <div className="voices">
+      {NEURAL_VOICES.map((v) => {
+        const have = n.installed.includes(v.id);
+        const loading = n.status === "loading" && n.voice === v.id && n.total > 0;
+        return (
+          <div className="voice" key={v.id}>
+            <label className="voice-pick">
+              <input
+                type="radio"
+                name="voice"
+                checked={chosen === v.id}
+                disabled={!have}
+                onChange={() => patchSettings({ voice: PIPER_PREFIX + v.id })}
+              />
+              <span>
+                <b>{v.name}</b> <span className="small muted">{v.note}</span>
+              </span>
+            </label>
+            <button type="button" className="iconbtn" aria-label={`Hörprobe: ${v.name}`} title="Hörprobe" onClick={() => preview(v.id)}>
+              <Icon name="speaker" size={20} />
+            </button>
+            {have ? (
+              <button type="button" className="btn small ghost" onClick={() => void removeVoice(v.id).then(() => chosen === v.id && patchSettings({ voice: "" }))}>
+                Löschen
+              </button>
+            ) : (
+              <button type="button" className="btn small" disabled={n.status === "loading" && n.total > 0} onClick={() => void install(v.id)}>
+                {loading ? `${pct} %` : `Laden · ${Math.round((v.bytes + (n.installed.length ? 0 : 29_600_000)) / 1e6)} MB`}
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {n.status === "loading" && n.total > 0 ? (
+        <div className="bar" aria-label="Download">
+          <i style={{ width: `${pct}%` }} />
+        </div>
+      ) : null}
+      {n.status === "error" ? <p className="small" style={{ color: "var(--brick)" }}>{n.error}</p> : null}
+      <p className="small muted">
+        {n.installed.length
+          ? "Neuronale Open-Source-Stimmen (Piper), die direkt auf deinem Gerät sprechen, auch ohne Internet."
+          : "Neuronale Open-Source-Stimmen (Piper), die direkt auf deinem Gerät sprechen: einmal laden (am besten im WLAN, dabei sind 30 MB für die Sprach-Engine), danach auch ohne Internet. Kostenlos."}
+      </p>
+    </div>
+  );
+}
+
+/** Pick the German voice: a neural voice on this device, or one of the system's voices. */
 function VoicePicker() {
   const s = useGame();
   const [voices, setVoices] = useState(germanVoices);
@@ -178,30 +254,54 @@ function VoicePicker() {
     setVoices(germanVoices());
     return onVoicesChanged(() => setVoices(germanVoices()));
   }, []);
+  const neural = neuralSupported();
+  const chosen = neuralId(s.settings.voice);
+  const onClaude = typeof window !== "undefined" && typeof window.claude?.use === "function";
   if (!canSpeak()) return <p className="small muted">Dieses Gerät kann nicht vorlesen.</p>;
   const auto = voices[0];
   const natural = voices.some((v) => voiceScore(v) >= 9);
-  const sample = () => speak("Hallo! Hast du heute Abend Zeit? Wir könnten zusammen kochen.", s.settings.speechRate, s.settings.voice);
+  const sample = () => void speak(SAMPLE, s.settings.speechRate, s.settings.voice);
   return (
     <div className="field">
       <label htmlFor="voice">Stimme</label>
+      {neural ? <NeuralVoices /> : null}
+      {onClaude ? (
+        <p className="small notice">
+          <b>Natürlichere Stimmen:</b> Die App-Version der Satzfabrik hat neuronale Stimmen, die auf deinem Handy laufen, kostenlos und auch
+          offline. Auf claude.ai lassen sie sich nicht laden. Siehe „Als App aufs Handy“ unten.
+        </p>
+      ) : null}
+      {canSpeakSystem() ? (
+        <>
+          {neural ? (
+            <label className="voice-pick">
+              <input type="radio" name="voice" checked={!chosen} onChange={() => patchSettings({ voice: "" })} />
+              <span>
+                <b>Stimme vom Gerät</b>
+              </span>
+            </label>
+          ) : null}
+          {!chosen ? (
+            <select id="voice" className="input" value={s.settings.voice} onChange={(e) => patchSettings({ voice: e.target.value })}>
+              <option value="">Automatisch{auto ? ` (${auto.name})` : ""}</option>
+              {voices.map((v) => (
+                <option key={v.voiceURI} value={v.voiceURI}>
+                  {v.name}
+                  {voiceScore(v) >= 9 ? " · natürlich" : ""}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </>
+      ) : null}
       <div className="row">
-        <select id="voice" className="input" style={{ flex: "1 1 200px" }} value={s.settings.voice} onChange={(e) => patchSettings({ voice: e.target.value })}>
-          <option value="">Automatisch{auto ? ` (${auto.name})` : ""}</option>
-          {voices.map((v) => (
-            <option key={v.voiceURI} value={v.voiceURI}>
-              {v.name}
-              {voiceScore(v) >= 9 ? " · natürlich" : ""}
-            </option>
-          ))}
-        </select>
         <button type="button" className="btn small" onClick={sample}>
           Probe hören
         </button>
       </div>
-      {!natural ? (
+      {!natural && !chosen && canSpeakSystem() ? (
         <details className="small muted">
-          <summary>Klingt roboterhaft? Natürlichere Stimmen sind kostenlos</summary>
+          <summary>Gerätestimme klingt roboterhaft? Bessere sind kostenlos</summary>
           <ul className="tips">
             <li>
               <b>iPhone/iPad:</b> Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch → eine Stimme mit
@@ -287,6 +387,68 @@ function LearnSection() {
         <span>Geräusche</span>
         <input id="sound" type="checkbox" checked={s.settings.sound} onChange={(e) => patchSettings({ sound: e.target.checked })} />
       </label>
+    </section>
+  );
+}
+
+/** How to get the game onto the home screen, and what changes there. */
+function AppSection() {
+  const onClaude = typeof window !== "undefined" && typeof window.claude?.use === "function";
+  const installable = useSyncExternalStore(onInstallChange, canPromptInstall, canPromptInstall);
+  const standalone = isStandalone();
+  const app = isAppBuild();
+  return (
+    <section className="card stack">
+      <h3>Als App aufs Handy</h3>
+      {standalone ? (
+        <p className="small">
+          Die Satzfabrik läuft als App vom Home-Bildschirm. Spielstand und Stimmen bleiben auf diesem Gerät, und sie startet auch ohne
+          Internet.
+        </p>
+      ) : app ? (
+        <>
+          <p className="small">Leg die Satzfabrik auf den Home-Bildschirm. Dann startet sie wie eine App, ohne Browserleiste und auch offline.</p>
+          {installable ? (
+            <button type="button" className="btn small" style={{ alignSelf: "flex-start" }} onClick={() => void promptInstall()}>
+              App installieren
+            </button>
+          ) : (
+            <ul className="tips small">
+              {isIOS() ? (
+                <li>
+                  <b>iPhone/iPad:</b> In Safari unten auf „Teilen“ tippen, dann „Zum Home-Bildschirm“ und „Hinzufügen“.
+                </li>
+              ) : (
+                <>
+                  <li>
+                    <b>Android:</b> Chrome-Menü (⋮) → „App installieren“ oder „Zum Startbildschirm hinzufügen“.
+                  </li>
+                  <li>
+                    <b>iPhone/iPad:</b> In Safari „Teilen“ → „Zum Home-Bildschirm“.
+                  </li>
+                </>
+              )}
+            </ul>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="small">
+            Die Satzfabrik gibt es auch als eigene App für den Home-Bildschirm, kostenlos und ohne App Store. Dort laufen die neuronalen
+            Stimmen, das Mikrofon in der App und das Spielen ohne Internet.
+          </p>
+          {onClaude ? (
+            <p className="small muted">
+              Korrekturen laufen dort nicht über dein Claude-Abo, sondern über einen eigenen API-Schlüssel (mit Haiku 5.5 unter 1 $ im Monat bei
+              20 Sätzen am Tag) oder ohne KI. Deinen Spielstand nimmst du mit: unten „Spielstand kopieren“ und in der App unter Daten
+              einfügen.
+            </p>
+          ) : null}
+          <a className="btn small" style={{ alignSelf: "flex-start" }} href={APP_URL} target="_blank" rel="noopener noreferrer">
+            App-Version öffnen
+          </a>
+        </>
+      )}
     </section>
   );
 }
@@ -439,6 +601,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
       </div>
       <AISection />
       <LearnSection />
+      <AppSection />
       <DataSection />
     </>
   );

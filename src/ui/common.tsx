@@ -92,14 +92,20 @@ export function Sheet({ onClose, children, label }: { onClose: () => void; child
 }
 
 export function SpeakButton({ text, small }: { text: string; small?: boolean }) {
+  // a neural voice takes a moment for a new sentence; show that it is coming
+  const [busy, setBusy] = useState(false);
   if (!canSpeak() || !text) return null;
   return (
     <button
       type="button"
-      className={`iconbtn ${small ? "" : ""}`}
+      className={`iconbtn${busy ? " busy" : ""}`}
       aria-label="Vorlesen"
+      aria-busy={busy}
       title="Vorlesen"
-      onClick={() => speak(text, store.get().settings.speechRate, store.get().settings.voice)}
+      onClick={() => {
+        setBusy(true);
+        void speak(text, store.get().settings.speechRate, store.get().settings.voice).finally(() => setBusy(false));
+      }}
     >
       <Icon name="speaker" size={small ? 18 : 22} />
     </button>

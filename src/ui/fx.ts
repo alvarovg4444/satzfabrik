@@ -1,4 +1,6 @@
 /** Small synthesized sounds (no audio files), speech output and a confetti burst. */
+import { neuralSupported, speakNeural, stopNeural } from "./neural";
+import { neuralId } from "./piper";
 
 let ctx: AudioContext | null = null;
 let enabled = true;
@@ -83,7 +85,7 @@ export function voiceScore(v: SpeechSynthesisVoice): number {
 }
 
 export function germanVoices(): SpeechSynthesisVoice[] {
-  if (!canSpeak()) return [];
+  if (!canSpeakSystem()) return [];
   try {
     return speechSynthesis
       .getVoices()
@@ -96,7 +98,7 @@ export function germanVoices(): SpeechSynthesisVoice[] {
 
 /** Calls back when the browser has (re)loaded its voice list; returns an unsubscribe function. */
 export function onVoicesChanged(cb: () => void): () => void {
-  if (!canSpeak()) return () => undefined;
+  if (!canSpeakSystem()) return () => undefined;
   speechSynthesis.addEventListener?.("voiceschanged", cb);
   return () => speechSynthesis.removeEventListener?.("voiceschanged", cb);
 }
@@ -106,12 +108,33 @@ function pickVoice(uri: string): SpeechSynthesisVoice | null {
   return (uri && voices.find((v) => v.voiceURI === uri)) || voices[0] || null;
 }
 
-export function canSpeak(): boolean {
+/** The device's own speech (speechSynthesis). */
+export function canSpeakSystem(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-export function speak(text: string, rate = 0.95, voiceURI = "") {
-  if (!canSpeak() || !text) return;
+export function canSpeak(): boolean {
+  return canSpeakSystem() || neuralSupported();
+}
+
+/**
+ * Reads German text aloud with the chosen voice: a neural voice ("piper:<id>", see
+ * neural.ts) or a system voice. Resolves once speaking has started.
+ */
+export function speak(text: string, rate = 0.95, voice = ""): Promise<void> {
+  if (!text) return Promise.resolve();
+  const id = neuralId(voice);
+  if (id) {
+    if (canSpeakSystem()) speechSynthesis.cancel();
+    return speakNeural(text, rate, id, () => speakSystem(text, rate, ""));
+  }
+  stopNeural();
+  speakSystem(text, rate, voice);
+  return Promise.resolve();
+}
+
+function speakSystem(text: string, rate: number, voiceURI: string) {
+  if (!canSpeakSystem()) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);

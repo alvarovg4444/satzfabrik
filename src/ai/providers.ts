@@ -28,9 +28,9 @@ export interface AISettings {
 }
 
 export const ANTHROPIC_MODELS: { id: string; label: string; note: string }[] = [
-  { id: "claude-opus-5-5", label: "Claude Opus 5.5", note: "Most careful, slowest. About $1.50 per 60 corrections." },
-  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Very good and faster. About $0.70 per 60 corrections." },
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5", note: "Fastest and cheapest. About 4 cents per 60 corrections." },
+  { id: "claude-opus-5-5", label: "Claude Opus 5.5", note: "Most careful, slowest. About $1.50 per 60 corrections (about $15 a month at 20 a day)." },
+  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Very good and faster. About $0.70 per 60 corrections (about $7 a month)." },
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5", note: "Fastest and cheapest. About 4 cents per 60 corrections (under $1 a month)." },
 ];
 
 export class AIError extends Error {

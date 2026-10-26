@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/build-artifact.mjs",
-    "release": "npm run build && cp dist/index.html app.html",
+    "release": "npm run build && cp dist/index.html app.html && node scripts/build-pwa.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "sim": "SIM=1 vitest run tests/sim.test.ts",

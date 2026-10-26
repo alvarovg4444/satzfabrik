@@ -44,6 +44,10 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
   buildings that grow with every level: wind turbines turn, a freight train and a car carrier
   ship come and go, race cars lap the test track, a plane takes off and, at the very end, a
   rocket launches. Tap anything to see what it is.
+- **A natural German voice on the device.** Corrected sentences, examples and words are read
+  aloud by Piper, an open-source neural voice (Thorsten, or Kerstin), running in the browser
+  with WebAssembly. One download of about 93 MB, then it works offline. Without it the app
+  uses the best voice the device has.
 
 ## Run it
 
@@ -52,16 +56,27 @@ Claude subscription (the artifact `sample` capability), and progress is saved pr
 person in the artifact's database, so it syncs between phone and laptop. Claude asks once for
 permission at your first correction.
 
-**Standalone.** [`app.html`](app.html) is the whole app in one file: download it and open
-it in a browser, or serve it with GitHub Pages. Outside claude.ai it uses your own key or a
-local model. To build it yourself:
+**As an app on your phone (no App Store).** The repository's `docs/` folder is the
+installable version (a web app with a manifest and a service worker), served by GitHub Pages
+at <https://filler6117.github.io/parrotgame/>. To switch it on once: repository **Settings →
+Pages → Build and deployment**, source **Deploy from a branch**, the branch with the latest
+release and folder **/docs**, then **Save**. Open the address on the phone and add it to the
+home screen (iPhone: Safari → Share → Add to Home Screen; Android: Chrome menu → Install
+app). It starts full screen, works offline, and has the neural voices and in-app dictation.
+Corrections there use your own Claude API key (Haiku 5.5 costs well under $1 a month at 20
+sentences a day) or no AI. Progress stays on that device; to bring a claude.ai save along,
+use Settings → Daten → "Spielstand kopieren" there and paste it in the app.
+
+**Standalone file.** [`app.html`](app.html) is the whole app in one file: download it and open
+it in a browser. Outside claude.ai it uses your own key or a local model (the neural voices
+need the app version: a page opened from disk has no Cache Storage). To build it yourself:
 
 ```bash
 cd satzfabrik
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # dist/index.html (single file) + dist/artifact.html (claude.ai page)
-npm run release    # build and copy dist/index.html to app.html
+npm run release    # build, copy dist/index.html to app.html, write the app version to ../docs
 ```
 
 In **Settings → KI-Korrektor**, pick one of:
@@ -100,7 +115,10 @@ Code map:
 - `src/pixel/`: the factory map. `layout.ts` turns the save into positions (pure, tested),
   `sprites.ts`, `machines.ts`, `campus.ts` and `campus2.ts` (buildings and yard) hold the pixel art,
   `scene.ts` draws and animates it.
-- `src/ui/`: React screens.
+- `src/ui/`: React screens, sounds and speech (`fx.ts`), the neural voice (`piper.ts`,
+  `neural.ts`, `neural.worker.ts`) and the app install helpers (`install.ts`).
+- `pwa/`: manifest, service worker and icons of the app version (`scripts/make-icons.py`
+  draws the icons, `scripts/build-pwa.mjs` assembles `../docs`).
 - `dev/`: sprite and scene preview pages for the pixel art (`npm run dev`, then open
   `/dev/sprites.html` or `/dev/scene.html?mode=fresh|mid|big&night`).
 
