@@ -15,21 +15,31 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
   graded by the corrector instead of by you.
 - **Scaffolding that fades.** New words show their article and forms. Mature words only show
   the English meaning, so you have to recall the German yourself.
-- **Error-driven practice.** Corrections are tagged (case, word order, adjective ending …) and
-  linked to grammar machines. Repeated mistakes come back as "weak spot" tasks, and the shop
-  recommends the matching grammar.
+- **Error-driven practice and a coach.** Corrections are tagged (case, word order, adjective
+  ending …) and linked to grammar machines. After every shift a coach reads your mistakes,
+  names the pattern ("twice no dative after *mit*") and puts up to three grammar topics in
+  focus: the next shifts practise them extra until they sit.
+- **The whole Goethe A1–B1 vocabulary, and B2.** Every word of the official Goethe-Institut
+  word lists for A1, A2 and B1 (the lists behind the Anki "Goethe" decks), 95 grammar
+  structures from A1 basics to B2, and a B2 set of about 800 frequent words, 12 structures
+  and 43 phrases that opens once your level reaches B1+. 4,030 items in all.
 - **A level engine.** It estimates your CEFR level per area from your answers and the
   corrector's reading of your sentences, delivers new blueprints just above that level every
   day, brings A1 basics back now and then, and tells the corrector how far to push you.
 - **Speed drills (Akkord).** 60-second rounds on articles, plurals, Perfekt, Präteritum,
   prepositions + case, Wo/Wohin, pronouns, possessives and adjective endings, built from
   your own machines. They need no AI.
-- **Idle-game loop.** Offline earnings with a storage cap, rust, upgrades, daily orders and a
-  chest, streaks, a combo multiplier, levels and achievements.
-- **A pixel-art car factory.** The Fabrik tab draws your progress as a GBA-style map: workers
-  in yellow helmets, welding robots, word racks, forging presses, paint booths and craft
-  benches, one per item you own. Rusty machines show a "!" bubble, gold ones sparkle, and every
-  sentence you write today parks a new car outside. Tap any machine to see its word or rule.
+- **Idle-game loop.** Each sentence pays Taler (1 at the start), and Taler build the factory,
+  never your vocabulary: a toolbox that adds a Taler per sentence, workers, forklifts and
+  trucks that produce while the app is closed, multipliers, and eight big buildings. Plus
+  offline earnings with a storage cap, rust, daily orders and a chest, streaks, a combo
+  multiplier, levels and achievements.
+- **A pixel-art car factory.** The Fabrik tab draws your progress as a GBA-style map: welding
+  robots, word racks, forging presses, paint booths and craft benches, one per item you own.
+  Rusty machines show a "!" bubble, gold ones sparkle, and every sentence you write today
+  parks a new car outside. Everything you buy appears too: a worker in a yellow helmet per
+  hire, forklifts, your own car transporters on the road, HQ floors, and buildings from a
+  canteen to a test track and a helicopter pad. Tap anything to see what it is.
 
 ## Run it
 
@@ -69,18 +79,22 @@ npm run sim        # prints a 60-day economy simulation (pacing of rewards and r
 
 Code map:
 
-- `src/content/`: curriculum and its schema in `types.ts`: 60 grammar structures, 180 nouns,
-  114 verbs, 75 adjectives/adverbs, 74 expressions and 90 everyday situations, all A2–B1,
-  all written for this app.
+- `src/content/`: curriculum and its schema in `types.ts`: 95 grammar structures, 2,123
+  nouns, 790 verbs, 908 adjectives, adverbs and other words, 114 expressions and 90 everyday
+  situations (A1 590, A2 783, B1 1,810, B2 847 items). The hand-written core is in
+  `grammar-*.ts`, `nouns.ts`, `verbs.ts`, `words.ts` and `expressions.ts`; the Goethe-list
+  vocabulary in `vocab-a1.ts` … `vocab-b2.ts`.
 - `src/engine/`: FSRS wrapper and stages (`srs.ts`), shift builder (`tasks.ts`), level engine
   and recommendations (`level.ts`), form drills (`drills.ts`), Anki import (`importer.ts`),
   text helpers.
 - `src/ai/`: prompts, response schema, providers (claude.ai `sample`, Anthropic SDK with
   structured outputs, OpenAI-compatible), corrector.
-- `src/game/`: economy, upgrades, orders, achievements, and all state changes in `actions.ts`.
+- `src/game/`: economy, upgrades, orders, achievements, the coach (`coach.ts`), and all state
+  changes in `actions.ts`.
 - `src/store/`: the store, plus local and claude.ai cloud persistence.
 - `src/pixel/`: the factory map. `layout.ts` turns the save into positions (pure, tested),
-  `sprites.ts` and `machines.ts` hold the pixel art, `scene.ts` draws and animates it.
+  `sprites.ts`, `machines.ts` and `campus.ts` (buildings and yard) hold the pixel art,
+  `scene.ts` draws and animates it.
 - `src/ui/`: React screens.
 - `dev/`: sprite and scene preview pages for the pixel art (`npm run dev`, then open
   `/dev/sprites.html` or `/dev/scene.html?mode=fresh|mid|big&night`).
