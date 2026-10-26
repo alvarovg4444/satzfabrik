@@ -180,7 +180,12 @@ export function LiveCoins({ value, perSecond, format }: { value: number; perSeco
     let raf = 0;
     let shown = Number(el.dataset.shown ?? value);
     let last = performance.now();
+    let drawn = 0;
     const step = (t: number) => {
+      raf = requestAnimationFrame(step);
+      // about ten times a second is plenty for a number, and keeps phones cool
+      if (t - drawn < 100) return;
+      drawn = t;
       const dt = Math.min(0.5, (t - last) / 1000);
       last = t;
       const gap = value - shown;
@@ -188,8 +193,8 @@ export function LiveCoins({ value, perSecond, format }: { value: number; perSeco
       if (gap > perSecond * 6 || gap < 0) shown += gap * Math.min(1, dt * 5);
       else shown += perSecond * dt;
       el.dataset.shown = String(shown);
-      el.textContent = format(shown);
-      raf = requestAnimationFrame(step);
+      const text = format(shown);
+      if (el.textContent !== text) el.textContent = text;
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);

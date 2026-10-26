@@ -167,6 +167,8 @@ export async function boot(hotData?: { game?: unknown }) {
 /** Idle production while the app is open. */
 export function startTicker(): () => void {
   const id = setInterval(() => {
+    // the coin counter animates in between; a hidden page catches up when it comes back
+    if (document.visibilityState === "hidden") return;
     store.update(
       (d, c) => {
         tick(d, c, Date.now());
@@ -174,7 +176,7 @@ export function startTicker(): () => void {
       },
       { quiet: true },
     );
-  }, 5000);
+  }, 15000);
   const onHide = () => {
     if (document.visibilityState === "hidden") flush();
   };

@@ -88,7 +88,7 @@ How to judge:
    "missing": not used at all.
    "comment": max 12 words in ${L} about how the target was used.
 4. "corrected": the learner's answer with the smallest changes that make it correct. Keep their words and ideas. If there is no error, repeat the answer exactly.
-5. "better": how a native speaker would say it more naturally, only if clearly better than "corrected"; otherwise "". Keep it one small step above the learner's level, so they can copy it.
+5. "better": how a native speaker would say it more naturally, only if clearly better than "corrected"; otherwise "". Keep it one small step above the learner's level, so they can copy it. It must still use every target (the same word, or the same grammar structure): the learner is practising exactly that. If the most natural wording would drop a target, give the most natural wording that keeps it, or "".
 6. "errors": one entry per mistake. "wrong" = the exact words from the learner's answer, "right" = the corrected words, "type" = one of: ${ERROR_LIST}. "rule" = the id of the grammar topic from the list below that explains the mistake, or "". "explain" = why, max 18 words, in ${L}.
 7. "quality": "perfect" (no errors), "minor" (only small slips such as spelling, a comma or one ending), "major" (errors that change the meaning, or several errors).
 8. "praise": max 8 words in simple German, about something specific they did well. "tip": one short hint in ${L} for next time, or "".
@@ -119,7 +119,7 @@ export function genPrompt(reqs: GenRequest[], catalog: Catalog, seedWords: strin
   });
   return `You write practice tasks for "Satzfabrik", a German trainer for an adult learner at about level ${level} who lives in a German-speaking country and wants to use German in daily life.
 
-For each request of type "situation": write a short, concrete everyday situation (1–2 sentences in simple German the learner can read at their level, address the learner as "du") in which using ALL listed targets is natural, and the same situation in English. Do not write the target words themselves (or their forms) in the situation: the learner has to come up with them. Leave "source_en" and "reference_de" empty.
+For each request of type "situation": write a short, concrete everyday situation (1–2 sentences in simple German the learner can read at their level, address the learner as "du") in which using ALL listed targets is natural, and the same situation in English. For a grammar structure, the situation must call for exactly that structure, so a native speaker would use it there (for "man + Verb": explain how something is generally done or what the rules are; for "weil": give a reason), and it says what to write. Do not write the target words themselves (or their forms) in the situation: the learner has to come up with them. Leave "source_en" and "reference_de" empty.
 For each request of type "translate": write one natural English sentence (max 16 words) whose German translation needs ALL listed targets, and a correct, natural German translation as "reference_de". Leave the scenario fields empty.
 
 Make every task specific and different from the others, also when the same targets are requested twice: real places, times, people's names, small problems and plans from adult life (work, flat, landlord, doctor, offices, shopping, friends, family, travel, hobbies). For inspiration only: ${seedWords.join(", ")}.

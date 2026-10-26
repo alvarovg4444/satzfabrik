@@ -303,6 +303,7 @@ export async function speakNeural(text: string, rate: number, id: string, fallba
     fallback();
     return;
   }
+  idleLater();
   const length = 1 / Math.min(1.5, Math.max(0.5, rate));
   const key = `${id}|${length.toFixed(2)}|${clean}`;
   const hit = memo.get(key);
@@ -317,6 +318,39 @@ export async function speakNeural(text: string, rate: number, id: string, fallba
   await new Promise<void>((started) => {
     current = { id: ++seq, key, urls: [], fallback, started };
     worker!.postMessage({ type: "speak", id: current.id, text: clean, length } satisfies ToWorker);
+  });
+}
+
+// --- memory ------------------------------------------------------------------
+
+/** The voice engine holds ~100 MB; after this long without speaking it lets go of it. */
+const IDLE_MS = 3 * 60_000;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Frees the engine (the files stay on the device; the next tap loads it again in a moment). */
+function unload() {
+  clearTimeout(idleTimer);
+  if (!worker || state.status === "loading" || current) return;
+  stopNeural();
+  worker.terminate();
+  worker = null;
+  ++generation;
+  set({ status: "off" });
+}
+
+function idleLater() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(unload, IDLE_MS);
+}
+
+/** Lets go of the voice engine when the app goes to the background or is not used for a while. */
+export function unloadWhenIdle() {
+  if (typeof document === "undefined") return;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") unload();
+  });
+  subscribeNeural(() => {
+    if (state.status === "ready") idleLater();
   });
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { checkRework, diagnoseShift, freshenTasks, gradeAnswer, selfGrade, type SelfRating } from "../ai/corrector";
 import { AIError } from "../ai/providers";
 import type { GradeResult, TargetStatus } from "../ai/schema";
@@ -110,7 +110,8 @@ function celebrate(events: TaskEvents, grade: GradeResult, anchor: HTMLElement |
   }
 }
 
-function Cues({ task, items, grade }: { task: Task; items: Map<string, Item>; grade?: GradeResult }) {
+// memo: these stay put while the learner types
+const Cues = memo(function Cues({ task, items, grade }: { task: Task; items: Map<string, Item>; grade?: GradeResult }) {
   const [shown, setShown] = useState<Record<string, boolean>>({});
   return (
     <div className="cues">
@@ -140,7 +141,7 @@ function Cues({ task, items, grade }: { task: Task; items: Map<string, Item>; gr
       })}
     </div>
   );
-}
+});
 
 function TaskHeader({ task, index, total, onEnd }: { task: Task; index: number; total: number; onEnd: () => void }) {
   const s = useGame();
@@ -177,7 +178,7 @@ function TaskHeader({ task, index, total, onEnd }: { task: Task; index: number; 
  * The task in German. The English translation stays hidden until the learner taps the
  * situation (or the EN button), so they read German and can borrow its words.
  */
-function Prompt({ task, alwaysEnglish }: { task: Task; alwaysEnglish: boolean }) {
+const Prompt = memo(function Prompt({ task, alwaysEnglish }: { task: Task; alwaysEnglish: boolean }) {
   const [english, setEnglish] = useState(alwaysEnglish);
   useEffect(() => setEnglish(alwaysEnglish), [task.key, alwaysEnglish]);
   const hasEnglish = !!(task.instructionEn || task.scenario?.en);
@@ -215,7 +216,7 @@ function Prompt({ task, alwaysEnglish }: { task: Task; alwaysEnglish: boolean })
       {task.source ? <div className="source">{task.source}</div> : null}
     </div>
   );
-}
+});
 
 /**
  * Scrolls so the situation sits at the top of what is visible, unless that would push the
