@@ -153,18 +153,23 @@ function transformTask(it: GramItem, card: CardState, idx: number, reason: Task[
   };
 }
 
-/** Pick the task type that fits the item's stage, rotating for variety. */
+/**
+ * Pick the task type that fits the item's stage, rotating for variety. `salt` (the game
+ * and the shift) varies the built-in situation and sentence, so a new game or a later
+ * shift does not repeat the same one.
+ */
 export function taskForItem(
   it: Item,
   card: CardState,
   catalog: Catalog,
   now: number,
   reason: Task["reason"],
+  salt = "",
 ): Task {
-  const seed = hash(`${it.id}|${dayKey(now)}|${card.reps}`);
+  const seed = hash(`${it.id}|${dayKey(now)}|${card.reps}${salt ? `|${salt}` : ""}`);
   if (it.kind !== "gram") return produceTask(it, card, catalog, seed, reason);
   const stage = stageOf(card);
-  const turn = card.reps + card.ok + card.fail;
+  const turn = card.reps + card.ok + card.fail + (salt ? hash(salt) % 6 : 0);
   if (stage <= 1) {
     return turn % 3 === 2
       ? (transformTask(it, card, turn, reason) ?? translateTask(it, card, turn, reason))
@@ -189,8 +194,8 @@ export function introTask(it: Item): Task {
   };
 }
 
-export function comboTask(items: Item[], cards: CardState[], catalog: Catalog, now: number): Task {
-  const seed = hash(`${items.map((i) => i.id).join("+")}|${dayKey(now)}`);
+export function comboTask(items: Item[], cards: CardState[], catalog: Catalog, now: number, salt = ""): Task {
+  const seed = hash(`${items.map((i) => i.id).join("+")}|${dayKey(now)}${salt ? `|${salt}` : ""}`);
   const topicItem = items.find((i) => i.kind !== "gram") ?? items[0];
   const sc = scenarioFor(topicItem, catalog, seed);
   return {
@@ -220,19 +225,21 @@ export interface ShiftInput {
   refresh?: Item[];
   /** Grammar the coach put in focus: practised extra, early in the shift. */
   focus?: string[];
+  /** Varies the built-in situations and sentences between games and shifts (see taskForItem). */
+  salt?: string;
 }
 
 /**
  * A basics check: only the meaning is shown (a word) or an English sentence to
  * translate (a structure), so the learner has to recall the German themselves.
  */
-export function refreshTask(it: Item, now: number, catalog: Catalog): Task {
+export function refreshTask(it: Item, now: number, catalog: Catalog, salt = ""): Task {
   const card = newCard(it.id, now);
   if (it.kind === "gram") {
-    const t = translateTask(it, card, hash(`${it.id}|${dayKey(now)}`), "refresh");
+    const t = translateTask(it, card, hash(`${it.id}|${dayKey(now)}${salt ? `|${salt}` : ""}`), "refresh");
     return { ...t, key: `${it.id}:refresh`, cues: [cueFor(it, 3)] };
   }
-  const t = taskForItem(it, card, catalog, now, "refresh");
+  const t = taskForItem(it, card, catalog, now, "refresh", salt);
   return { ...t, key: `${it.id}:refresh`, cues: [cueFor(it, 3)], minWords: 4 };
 }
 
@@ -243,6 +250,7 @@ export function refreshTask(it: Item, now: number, catalog: Catalog): Task {
  */
 export function buildShift(input: ShiftInput): Task[] {
   const { cards, catalog, now, size } = input;
+  const salt = input.salt ?? "";
   const maxNew = input.maxNew ?? 3;
   const owned = Object.values(cards).filter((c) => catalog.get(c.id));
   const used = new Set<string>();
@@ -259,7 +267,7 @@ export function buildShift(input: ShiftInput): Task[] {
     const it = catalog.get(c.id)!;
     used.add(c.id);
     fresh.push(introTask(it));
-    fresh.push(taskForItem(it, c, catalog, now, "new"));
+    fresh.push(taskForItem(it, c, catalog, now, "new", salt));
   }
 
   const due = owned
@@ -272,7 +280,7 @@ export function buildShift(input: ShiftInput): Task[] {
     const it = catalog.get(id);
     if (!c || !it || used.has(id) || stageOf(c) === 0) continue;
     used.add(id);
-    focused.push(taskForItem(it, c, catalog, now, "focus"));
+    focused.push(taskForItem(it, c, catalog, now, "focus", salt));
   }
 
   let weak: Task | null = null;
@@ -281,7 +289,7 @@ export function buildShift(input: ShiftInput): Task[] {
     const it = catalog.get(id);
     if (c && it && stageOf(c) > 0 && !used.has(id)) {
       used.add(id);
-      weak = taskForItem(it, c, catalog, now, "weak");
+      weak = taskForItem(it, c, catalog, now, "weak", salt);
       break;
     }
   }
@@ -296,7 +304,7 @@ export function buildShift(input: ShiftInput): Task[] {
     if (stageOf(c) >= 3) mature.push(c);
     else {
       used.add(c.id);
-      singles.push(taskForItem(catalog.get(c.id)!, c, catalog, now, "due"));
+      singles.push(taskForItem(catalog.get(c.id)!, c, catalog, now, "due", salt));
     }
   }
   const combos: Task[] = [];
@@ -310,9 +318,9 @@ export function buildShift(input: ShiftInput): Task[] {
     if (group.length < 3 && gram.length) group.push(gram.shift()!);
     group.forEach((c) => used.add(c.id));
     if (group.length === 1) {
-      combos.push(taskForItem(catalog.get(group[0].id)!, group[0], catalog, now, "due"));
+      combos.push(taskForItem(catalog.get(group[0].id)!, group[0], catalog, now, "due", salt));
     } else {
-      combos.push(comboTask(group.map((c) => catalog.get(c.id)!), group, catalog, now));
+      combos.push(comboTask(group.map((c) => catalog.get(c.id)!), group, catalog, now, salt));
     }
   }
 
@@ -324,7 +332,7 @@ export function buildShift(input: ShiftInput): Task[] {
     for (const c of rest) {
       if (singles.length + combos.length + practice.length >= budget) break;
       used.add(c.id);
-      practice.push(taskForItem(catalog.get(c.id)!, c, catalog, now, "practice"));
+      practice.push(taskForItem(catalog.get(c.id)!, c, catalog, now, "practice", salt));
     }
   }
 
@@ -332,7 +340,7 @@ export function buildShift(input: ShiftInput): Task[] {
   const maintenance = interleave([...singles, ...practice], combos);
   (input.refresh ?? [])
     .filter((it) => !used.has(it.id) && !cards[it.id])
-    .forEach((it, i) => maintenance.splice(Math.min(maintenance.length, 2 + i * 4), 0, refreshTask(it, now, catalog)));
+    .forEach((it, i) => maintenance.splice(Math.min(maintenance.length, 2 + i * 4), 0, refreshTask(it, now, catalog, salt)));
   const r = rng(hash(dayKey(now) + owned.length));
   let fi = 0;
   let mi = 0;

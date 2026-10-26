@@ -99,8 +99,9 @@ const INSPIRATION = [
 ];
 
 /**
- * Ask the AI for fresh, varied situations for the tasks of a shift. Returns a
- * partial update per task key; tasks keep their built-in content if this fails.
+ * Ask the AI for fresh, varied content for the tasks of a shift: a situation for each
+ * writing task, a new sentence for each translation. Returns a partial update per task
+ * key; tasks keep their built-in content if this fails.
  */
 export async function freshenTasks(
   provider: AIProvider,
@@ -112,11 +113,11 @@ export async function freshenTasks(
   const out = new Map<string, Partial<Task>>();
   if (provider.id === "offline") return out;
   const reqs: GenRequest[] = [];
-  const keyFor = new Map<string, string>();
+  const taskFor = new Map<string, Task>();
   tasks.forEach((t, i) => {
-    if (t.type !== "produce" && t.type !== "combo") return;
+    if (t.type !== "produce" && t.type !== "combo" && t.type !== "translate") return;
     const k = `t${i}`;
-    keyFor.set(k, t.key);
+    taskFor.set(k, t);
     const topicItem = t.targets.map((id) => catalog.get(id)).find((it): it is Item => !!it && it.kind !== "gram");
     reqs.push({ key: k, type: t.type, targets: t.targets, topic: topicItem?.topic });
   });
@@ -125,9 +126,11 @@ export async function freshenTasks(
   const words = [0, 5, 11].map((d) => INSPIRATION[(seed + d) % INSPIRATION.length]);
   const raw = await provider.json(genPrompt(reqs, catalog, words, level), "gen", { signal });
   for (const g of coerceGen(raw).tasks) {
-    const key = keyFor.get(g.key);
-    if (!key || !g.scenario_de) continue;
-    out.set(key, { scenario: { de: g.scenario_de, en: g.scenario_en || "" } });
+    const task = taskFor.get(g.key);
+    if (!task) continue;
+    if (task.type === "translate") {
+      if (g.source_en && g.reference_de) out.set(task.key, { source: g.source_en, reference: g.reference_de });
+    } else if (g.scenario_de) out.set(task.key, { scenario: { de: g.scenario_de, en: g.scenario_en || "" } });
   }
   return out;
 }

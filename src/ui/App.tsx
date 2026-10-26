@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { isDue } from "../engine/srs";
 import { fmt } from "../game/economy";
+import { prefetchNextShift } from "../store/prefetch";
 import { store, useGame, useMeta } from "../store/store";
 import { Icon, Sheet, Toasts } from "./common";
 import { DrillView } from "./DrillView";
@@ -77,6 +78,14 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = "de";
   }, []);
+
+  // Once the corrector is connected, the AI writes the next shift's situations in the background.
+  const meta = useMeta();
+  useEffect(() => {
+    if (!meta.providerReady || meta.provider.id === "offline" || !s.onboarded) return;
+    const timer = window.setTimeout(() => void prefetchNextShift(), 1200);
+    return () => window.clearTimeout(timer);
+  }, [meta.providerReady, meta.provider.id, s.onboarded]);
 
   const go = (t: Tab, shop: "upgrades" | "plans" = "upgrades") => {
     if (t === "settings") setReturnTab(tab === "settings" ? "fabrik" : tab);

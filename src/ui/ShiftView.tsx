@@ -4,13 +4,16 @@ import { AIError } from "../ai/providers";
 import type { GradeResult, TargetStatus } from "../ai/schema";
 import { ERROR_TYPES, type Item } from "../content/types";
 import { isDue, stageOf } from "../engine/srs";
-import { buildShift, introTask, shortName, taskForItem, taskTitle, type Task } from "../engine/tasks";
-import { dayKey, diffWords, mentions, wordCount } from "../engine/text";
-import { refreshCount, refreshers, levelLabel, overall } from "../engine/level";
-import { applyGrade, applyRework, deliver, finishShift, hallUnlocked, newLeftToday, weakRules, type TaskEvents } from "../game/actions";
-import { afterShift, applyDiagnosis, cleanShift, coachInput, emptyLog, FOCUS_DONE, focusForShift, localDiagnosis, type ShiftLog } from "../game/coach";
+import { introTask, shortName, taskForItem, taskTitle, type Task } from "../engine/tasks";
+import { diffWords, mentions, wordCount } from "../engine/text";
+import { levelLabel, overall } from "../engine/level";
+import { applyGrade, applyRework, deliver, finishShift, newLeftToday, weakRules, type TaskEvents } from "../game/actions";
+import { afterShift, applyDiagnosis, cleanShift, coachInput, emptyLog, FOCUS_DONE, localDiagnosis, type ShiftLog } from "../game/coach";
 import { fmt } from "../game/economy";
 import { orderText } from "../game/orders";
+import { planShift } from "../game/plan";
+import { keepForLater, prefetchNextShift } from "../store/prefetch";
+import { applyBank } from "../ai/bank";
 import type { GameState } from "../game/state";
 import { store, useCatalog, useGame, useMeta } from "../store/store";
 import { floatCoins, Icon, SpeakButton, toast } from "./common";
@@ -876,26 +879,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
     const delivered = store.update((d, c) => deliver(d, c, now));
     if (delivered.length) toast(`Lieferung: ${delivered.length} neue Baupläne, passend zu deinem Niveau.`, 4000);
     const st = store.get();
-    const dueCount = Object.values(st.cards).filter((c) => isDue(c, now)).length;
-    const size = st.settings.shiftSize;
-    const newLeft = newLeftToday(st, now);
-    const build = (asExtra: boolean) =>
-      buildShift({
-        cards: st.cards,
-        catalog,
-        now,
-        weakRules: weakRules(st),
-        focus: focusForShift(st),
-        size,
-        extra: asExtra,
-        maxNew: Math.min(newLeft, Math.max(3, Math.min(6, size - dueCount))),
-        refresh: st.settings.refresh
-          ? refreshers(
-              { catalog, cards: st.cards, level: st.level, hallOpen: (h) => hallUnlocked(st, h), seed: `${dayKey(now)}|${st.stats.shifts}` },
-              refreshCount(st.level, size),
-            )
-          : [],
-      });
+    const build = (asExtra: boolean) => planShift(st, catalog, now, asExtra);
     let list = focus?.length ? focusTasks(focus, now) : build(extra);
     if (!list.length && !focus?.length && !extra) {
       // Nothing due and today's new machines are built: offer free practice instead.
@@ -906,20 +890,27 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
       toast("Nichts zu tun. Such dir im Lernplan neue Baupläne aus.");
       return;
     }
+    // Situations and sentences the AI wrote ahead of time come first, so the first task is fresh too.
+    const bank = applyBank(list);
+    list = bank.tasks;
     setTasks(list);
     setIndex(0);
     setAnswer("");
     setWarn(null);
     setSummary(emptySummary());
     setPhase({ k: "task" });
-    if (st.settings.freshTasks && meta.provider.id !== "offline") {
+    const rest = list.filter((t) => !bank.filled.has(t.key));
+    if (st.settings.freshTasks && meta.provider.id !== "offline" && rest.length) {
       genRef.current?.abort();
       const ctl = new AbortController();
       genRef.current = ctl;
-      freshenTasks(meta.provider, list, catalog, ctl.signal, levelCode(store.get()))
+      freshenTasks(meta.provider, rest, catalog, ctl.signal, levelCode(store.get()))
         .then((updates) => {
           if (ctl.signal.aborted || !updates.size) return;
-          // Only swap situations the learner has not reached yet, never the one on screen.
+          // Only swap situations the learner has not reached yet, never the one on screen;
+          // what came too late is kept for the next time these words come up.
+          const passed = list.slice(0, indexRef.current + 1);
+          keepForLater(passed, updates);
           setTasks((cur) => cur.map((t, i) => (i > indexRef.current && updates.has(t.key) ? { ...t, ...updates.get(t.key) } : t)));
         })
         .catch(() => undefined);
@@ -943,6 +934,8 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
         if (it?.kind === "gram" && f.streak >= FOCUS_DONE) toast(<span>Coach: <b>{it.name}</b> sitzt jetzt. Fokus erledigt!</span>, 4000);
       }
       runCoach(summary.log, graded);
+      // the next shift's situations, written while the learner looks at the results
+      void prefetchNextShift(true);
     } else {
       setPhase(graded > 0 ? { k: "done", bonus: 0 } : { k: "idle" });
     }

@@ -126,6 +126,26 @@ Every item is checked automatically (`tests/content.test.ts`): ids, required fie
 article and plural, complete verb forms, separable prefixes, and that each example sentence
 really contains its word, so the "missing word" check works on real answers.
 
+### Situations and sentences
+
+Built in are 90 everyday situations (6 per topic, picked by the word's topic), three
+translation sentences and two rewrites per grammar structure, and one example per word. That
+is enough to work without AI, but not per word: the 448 work words share six situations.
+So the AI writes the variety:
+
+- **Ahead of time.** When the app opens and after every shift, the AI writes two situations
+  for each of the next shift's words (and new translation sentences for its structures),
+  fitted to that word and the learner's level, without the word itself in the text. They go
+  into a bank on the device (`src/ai/bank.ts`, `src/store/prefetch.ts`). A shift takes from
+  the bank first, so the first task is fresh too, and each situation is used once.
+- **During the shift.** Whatever the bank had nothing for is written when the shift starts;
+  tasks still ahead are updated, never the one on screen, and what arrives too late is kept
+  for next time.
+- **Without AI.** The built-in pick depends on the game and the shift, so a new game or a
+  later shift does not repeat the same situation for the same word.
+
+The bank is kept apart from the save: starting a new game keeps it.
+
 ## The level engine
 
 `engine/level.ts` estimates your CEFR level from your own answers, per area (vocabulary,

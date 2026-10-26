@@ -119,10 +119,10 @@ export function genPrompt(reqs: GenRequest[], catalog: Catalog, seedWords: strin
   });
   return `You write practice tasks for "Satzfabrik", a German trainer for an adult learner at about level ${level} who lives in a German-speaking country and wants to use German in daily life.
 
-For each request of type "situation": write a short, concrete everyday situation (1–2 sentences in simple German the learner can read at their level, address the learner as "du") in which using ALL listed targets is natural, and the same situation in English. Leave "source_en" and "reference_de" empty.
+For each request of type "situation": write a short, concrete everyday situation (1–2 sentences in simple German the learner can read at their level, address the learner as "du") in which using ALL listed targets is natural, and the same situation in English. Do not write the target words themselves (or their forms) in the situation: the learner has to come up with them. Leave "source_en" and "reference_de" empty.
 For each request of type "translate": write one natural English sentence (max 16 words) whose German translation needs ALL listed targets, and a correct, natural German translation as "reference_de". Leave the scenario fields empty.
 
-Make every task specific and different from the others: real places, times, people's names, small problems and plans from adult life (work, flat, landlord, doctor, offices, shopping, friends, family, travel, hobbies). For inspiration only: ${seedWords.join(", ")}.
+Make every task specific and different from the others, also when the same targets are requested twice: real places, times, people's names, small problems and plans from adult life (work, flat, landlord, doctor, offices, shopping, friends, family, travel, hobbies). For inspiration only: ${seedWords.join(", ")}.
 
 Requests:
 ${lines.join("\n")}
