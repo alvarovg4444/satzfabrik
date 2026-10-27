@@ -163,7 +163,7 @@ export function FlameSheet({ onClose }: { onClose: () => void }) {
         Heute: <b className="num">{done}/{STREAK_MIN}</b> Sätze {keptToday ? "– die Flamme ist für heute sicher." : "für die Flamme."}
       </p>
       <p className="small muted">
-        Jeder Tag mit mindestens {STREAK_MIN} Sätzen hält sie am Brennen. Jeder Tag in Folge gibt deiner Fabrik +5 % Produktion, bis +50 % ab Tag 10.
+        Jeder Tag mit mindestens {STREAK_MIN} Sätzen hält sie am Brennen. Jeder Tag in Folge gibt deiner Fabrik +3 % Produktion, bis +30 % ab Tag 10.
         {n < 10 ? ` Noch ${10 - n} ${10 - n === 1 ? "Tag" : "Tage"} bis zum Maximum.` : ""} Ab einer Woche wird sie groß, ab einem Monat brennt sie blau.
       </p>
       {s.streak.freezes > 0 ? (

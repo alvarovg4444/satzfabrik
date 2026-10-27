@@ -201,7 +201,7 @@ describe("streak", () => {
     expect(s.streak.lastDay).toBe(dayKey(yesterday.getTime()));
   });
 
-  it("adds 5% production per day, up to 50%", () => {
+  it("adds 3% production per day, up to 30%", () => {
     const s = newGame(T0);
     unlock(s, catalog.get("n.termin")!, T0);
     const task = buildShift({ cards: s.cards, catalog, now: T0, weakRules: [], size: 10 }).find((t) => t.type !== "intro")!;
@@ -210,9 +210,9 @@ describe("streak", () => {
     const base = factoryRate(s, catalog, T0);
     expect(base).toBeGreaterThan(0);
     s.streak.current = 4;
-    expect(factoryRate(s, catalog, T0)).toBeCloseTo(base * 1.2);
+    expect(factoryRate(s, catalog, T0)).toBeCloseTo(base * 1.12);
     s.streak.current = 40;
-    expect(streakBonus(s)).toBeCloseTo(0.5);
+    expect(streakBonus(s)).toBeCloseTo(0.3);
   });
 });
 

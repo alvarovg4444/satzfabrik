@@ -121,9 +121,9 @@ export function factoryRate(s: GameState, catalog: Catalog, now: number): number
   return units * unitValue(s) * (1 + streakBonus(s));
 }
 
-/** The streak warms the factory: +5% production per day in a row, up to +50% from day 10. */
+/** The streak warms the factory: +3% production per day in a row, up to +30% from day 10 (simulated over two years: noticeable, without emptying the shop early). */
 export function streakBonus(s: GameState): number {
-  return 0.05 * Math.min(10, s.streak.current);
+  return 0.03 * Math.min(10, s.streak.current);
 }
 
 /** Hours of production that pile up while the app is closed. */
