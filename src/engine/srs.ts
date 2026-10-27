@@ -35,6 +35,8 @@ export interface CardState {
   lastDay?: string;
   /** Last few corrected sentences the learner wrote with this item. */
   ctx?: string[];
+  /** Times Schnellkarten held off the rust since the last sentence with this item. */
+  held?: number;
 }
 
 export type Outcome = "correct" | "flawed" | "synonym" | "wrong" | "missing";
@@ -63,7 +65,7 @@ function fromFsrs(
   id: string,
   c: Card,
   unlockedAt: number,
-  keep: Pick<CardState, "ok" | "fail" | "lastDay" | "ctx">,
+  keep: Pick<CardState, "ok" | "fail" | "lastDay" | "ctx" | "held">,
 ): CardState {
   return {
     id,
@@ -128,7 +130,8 @@ export function review(
   // A basic the learner already knew on first sight (an A1 refresher) starts like an Easy card.
   const grade = opts.known && card.st === State.New && outcome === "correct" ? Rating.Easy : gradeFor(outcome);
   const rec = scheduler.next(toFsrs(card), new Date(opts.now), grade);
-  const next = fromFsrs(card.id, rec.card, card.unlockedAt, { ...counts, lastDay: today });
+  // a sentence is a real review: Schnellkarten may hold the rust off again
+  const next = fromFsrs(card.id, rec.card, card.unlockedAt, { ...counts, lastDay: today, held: 0 });
   return { card: next, scheduled: true, stageBefore, stageAfter: stageOf(next) };
 }
 
@@ -151,6 +154,27 @@ export const STAGE_NAMES = ["Bauplan", "Rohbau", "Läuft", "Solide", "Profi", "G
 export function retrievability(card: CardState, now: number): number {
   if (card.st === State.New || !card.last) return 1;
   return scheduler.get_retrievability(toFsrs(card), new Date(now), false);
+}
+
+/** How often Schnellkarten may hold off a machine's rust before it needs a sentence again. */
+export const MAX_HOLDS = 2;
+
+/**
+ * A word recalled on a flashcard: keeps it from rusting for a few days (a third of its
+ * interval, 1–4 days), at most MAX_HOLDS times in a row. Memory strength and stage stay:
+ * a machine only climbs by being used in a sentence.
+ */
+export function holdOff(card: CardState, now: number): CardState {
+  if (card.st === State.New || card.ok === 0 || (card.held ?? 0) >= MAX_HOLDS) return card;
+  if (card.due > now + DAY) return card;
+  const days = Math.min(4, Math.max(1, Math.round(card.sched / 3)));
+  return { ...card, due: now + days * DAY, held: (card.held ?? 0) + 1 };
+}
+
+/** A word not recalled on a flashcard: due now, so the next shift brings it back. */
+export function slipped(card: CardState, now: number): CardState {
+  if (card.st === State.New || card.ok === 0) return { ...card, fail: card.fail + 1 };
+  return { ...card, fail: card.fail + 1, due: Math.min(card.due, now) };
 }
 
 export function isDue(card: CardState, now: number): boolean {

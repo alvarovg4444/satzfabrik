@@ -401,10 +401,19 @@ export function buildDrillRound(
   seed: number,
   count = 12,
   kinds: DrillKind[] = DEFAULT_MIX,
+  /** Words to ask about more often (half the time, when there are some). */
+  prefer: Set<string> = new Set(),
 ): DrillQ[] {
   const r = rng(seed);
-  const ns = nouns(pool).length >= 6 ? nouns(pool) : nouns(fallback);
-  const vs = verbs(pool).length >= 6 ? verbs(pool) : verbs(fallback);
+  const allNouns = nouns(pool).length >= 6 ? nouns(pool) : nouns(fallback);
+  const allVerbs = verbs(pool).length >= 6 ? verbs(pool) : verbs(fallback);
+  const favour = <T extends Item>(list: T[]): T[] => {
+    const hot = list.filter((x) => prefer.has(x.id));
+    // listing the hot words again as often as the rest gives them about half the picks
+    return hot.length ? [...list, ...Array.from({ length: Math.ceil(list.length / hot.length) }, () => hot).flat()] : list;
+  };
+  const ns = favour(allNouns);
+  const vs = favour(allVerbs);
   const safeNouns = ns.filter((n) => !isWeakNoun(n));
   const strong = vs.filter((v) => !/te( |$)/.test(v.prat));
   const out: DrillQ[] = [];
@@ -429,6 +438,11 @@ export function buildDrillRound(
     }
   }
   return out;
+}
+
+/** The same question without answer buttons: the calm round asks for the answer typed. */
+export function typed(q: DrillQ): DrillQ {
+  return { ...q, options: undefined };
 }
 
 export function checkDrill(q: DrillQ, given: string): boolean {

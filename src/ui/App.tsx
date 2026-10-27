@@ -5,7 +5,7 @@ import { prefetchNextShift } from "../store/prefetch";
 import { store, useGame, useMeta } from "../store/store";
 import { AchievementPopup } from "./Celebrations";
 import { Icon, Sheet, Toasts } from "./common";
-import { DrillView } from "./DrillView";
+import { TrainingView } from "./TrainingView";
 import { FactoryView } from "./FactoryView";
 import { sfx } from "./fx";
 import { Onboarding } from "./Onboarding";
@@ -15,19 +15,19 @@ import { ShopView } from "./ShopView";
 import { StatsView } from "./StatsView";
 import { TopBar } from "./TopBar";
 
-type Tab = "fabrik" | "laden" | "schicht" | "akkord" | "statistik" | "settings";
+type Tab = "fabrik" | "laden" | "schicht" | "training" | "statistik" | "settings";
 
 const TABS: { id: Exclude<Tab, "settings">; label: string; icon: Parameters<typeof Icon>[0]["name"] }[] = [
   { id: "fabrik", label: "Fabrik", icon: "factory" },
   { id: "laden", label: "Laden", icon: "shop" },
   { id: "schicht", label: "Schicht", icon: "play" },
-  { id: "akkord", label: "Akkord", icon: "bolt" },
+  { id: "training", label: "Training", icon: "bolt" },
   { id: "statistik", label: "Statistik", icon: "chart" },
 ];
 
 function initialTab(): Tab {
   const h = typeof location !== "undefined" ? location.hash.replace("#", "") : "";
-  return (["fabrik", "laden", "schicht", "akkord", "statistik"] as string[]).includes(h) ? (h as Tab) : "fabrik";
+  return (["fabrik", "laden", "schicht", "training", "statistik"] as string[]).includes(h) ? (h as Tab) : "fabrik";
 }
 
 function WelcomeBack() {
@@ -119,9 +119,9 @@ export function App() {
         {tab === "laden" ? <ShopView initial={shopTab} /> : null}
         {/* The shift stays mounted so switching tabs never loses a half-written sentence. */}
         <div hidden={tab !== "schicht"} className="stack">
-          <ShiftView startReq={startReq} goFactory={() => go("fabrik")} goDrill={() => go("akkord")} />
+          <ShiftView startReq={startReq} goFactory={() => go("fabrik")} goDrill={() => go("training")} />
         </div>
-        {tab === "akkord" ? <DrillView /> : null}
+        {tab === "training" ? <TrainingView /> : null}
         {tab === "statistik" ? <StatsView onPractice={(id) => startShift([id])} /> : null}
         {tab === "settings" ? <SettingsView onClose={() => go(returnTab)} /> : null}
       </main>

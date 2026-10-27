@@ -105,8 +105,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <p className="muted">Suche Korrektor …</p>
             )}
             <p className="small muted">
-              Plan für jeden Tag: 2–3 Schichten à 10 Minuten, dazu eine Akkord-Runde für die Formen. Das Tagesziel hält deinen Streak am
-              Leben.
+              Plan für jeden Tag: 1–3 Schichten à 10 Minuten, dazu ab und zu Training: Schnellkarten für die Wörter, Akkord für die Formen.
+              Ab 5 Sätzen am Tag brennt deine Flamme.
             </p>
             <button type="button" className="btn primary block" onClick={finish}>
               Erste Schicht starten <Icon name="play" size={18} />

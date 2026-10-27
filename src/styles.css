@@ -1277,6 +1277,84 @@ textarea.input {
 .flash-bad {
   animation: flashbad 0.4s ease;
 }
+.timer.paused > i {
+  background: var(--line);
+}
+.answer-big {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.mistake {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 2px solid var(--brick);
+  padding-top: 12px;
+}
+.mistake s,
+.verdict-line s {
+  color: var(--brick);
+}
+.verdict-line {
+  margin: 0;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.verdict-line.ok {
+  color: var(--ok);
+}
+.flashcard .drill-prompt {
+  padding: 10px 8px 14px;
+}
+.focus-box {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.focus-box p {
+  margin: 4px 0 0;
+}
+.miss-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.train-pick {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.train-pick.suggested {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 2px var(--signal);
+}
+.train-icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1.5px solid var(--line);
+}
+.train-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
 
 /* --- shop / lists ------------------------------------------------------- */
 .list {

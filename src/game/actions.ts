@@ -2,7 +2,8 @@ import type { GradeResult, TargetStatus } from "../ai/schema";
 import type { Catalog } from "../content/catalog";
 import { HALLS, type ErrorType, type HallId, type Item, type TopicId } from "../content/types";
 import { decayBasics, levelOpen, noteBasics, observe, observeAi, recommend, seedFromHistory } from "../engine/level";
-import { isDue, newCard, review, rustOf, stageOf } from "../engine/srs";
+import type { DrillKind } from "../engine/drills";
+import { holdOff, isDue, newCard, review, rustOf, slipped, stageOf } from "../engine/srs";
 import type { Task } from "../engine/tasks";
 import { dayKey, daysBetween, hash, wordCount } from "../engine/text";
 import { ACHIEVEMENTS, type Achievement } from "./achievements";
@@ -10,6 +11,7 @@ import { noteFocusResult } from "./coach";
 import { comboCap, factoryRate, idleEarnings, levelOf, perSentence, shiftBonus, taskReward, xpMult } from "./economy";
 import { dailyOrders, openChest, type ChestPrize, type Order } from "./orders";
 import { emptyDay, type DayStat, type GameState } from "./state";
+import { KIND_RULE } from "./training";
 import { UPGRADE_BY_ID, upgradeCost, type UpgradeId } from "./upgrades";
 
 /*
@@ -123,7 +125,7 @@ function streakFromHistory(s: GameState, now: number): void {
   // today may still be on its way: the run can end today or yesterday
   for (let i = 0; i < 400; i++) {
     const k = dayKey(d.getTime());
-    if ((s.stats.days[k]?.tasks ?? 0) >= STREAK_MIN) {
+    if (streakDay(s.stats.days[k])) {
       run++;
       last ??= k;
     } else if (i > 0) break;
@@ -148,10 +150,11 @@ export function rollover(s: GameState, catalog: Catalog, now: number): void {
   if (s.stats.heatDay !== day) {
     const gap = s.stats.heatDay ? Math.max(1, daysBetween(s.stats.heatDay, day)) : 1;
     const f = Math.pow(0.7, gap);
-    for (const k of Object.keys(s.stats.ruleHeat)) {
-      s.stats.ruleHeat[k] *= f;
-      if (s.stats.ruleHeat[k] < 0.2) delete s.stats.ruleHeat[k];
-    }
+    for (const heat of [s.stats.ruleHeat, s.stats.wordHeat ?? {}])
+      for (const k of Object.keys(heat)) {
+        heat[k] *= f;
+        if (heat[k] < 0.2) delete heat[k];
+      }
     s.stats.heatDay = day;
   }
   // no streak (yet): count it from the day history (days with at least STREAK_MIN sentences)
@@ -284,11 +287,17 @@ function checkAchievements(s: GameState, catalog: Catalog, now: number): Achieve
 
 /** Sentences that keep the flame going for a day: one short shift. (The daily goal is a separate target.) */
 export const STREAK_MIN = 5;
+/** …or a round of Schnellkarten. */
+export const STREAK_CARDS = 15;
+
+function streakDay(d: DayStat | undefined): boolean {
+  return !!d && (d.tasks >= STREAK_MIN || (d.cards ?? 0) >= STREAK_CARDS);
+}
 
 function updateStreak(s: GameState, now: number): boolean {
   const day = dayKey(now);
   if (s.streak.lastDay === day) return false;
-  if (today(s, now).tasks < STREAK_MIN) return false;
+  if (!streakDay(today(s, now))) return false;
   const continues = s.streak.lastDay && daysBetween(s.streak.lastDay, day) === 1;
   s.streak.current = continues ? s.streak.current + 1 : 1;
   s.streak.best = Math.max(s.streak.best, s.streak.current);
@@ -478,9 +487,18 @@ export function applyDrill(
   s: GameState,
   catalog: Catalog,
   now: number,
-  r: { correct: number; total: number; earned: number },
+  r: { correct: number; total: number; earned: number; misses?: { kind: DrillKind; itemId?: string }[] },
 ): { orders: Order[]; achievements: Achievement[] } {
   addTaler(s, now, r.earned);
+  // misses are weak spots: the grammar gets more practice in shifts, the word more in Akkord
+  for (const m of r.misses ?? []) {
+    const rule = KIND_RULE[m.kind];
+    if (rule && catalog.get(rule)) s.stats.ruleHeat[rule] = (s.stats.ruleHeat[rule] ?? 0) + 0.5;
+    if (m.itemId) {
+      const heat = (s.stats.wordHeat ??= {});
+      heat[m.itemId] = (heat[m.itemId] ?? 0) + 1;
+    }
+  }
   const day = today(s, now);
   day.drills += r.total;
   day.drillOk += r.correct;
@@ -490,6 +508,35 @@ export function applyDrill(
   const achievements = checkAchievements(s, catalog, now);
   s.updatedAt = now;
   return { orders, achievements };
+}
+
+/** One Schnellkarte: recalled on the first try holds off the rust; missed brings it back to the next shift. */
+export function applyCard(
+  s: GameState,
+  catalog: Catalog,
+  now: number,
+  id: string,
+  firstTry: boolean,
+): { taler: number; streakUp: boolean; achievements: Achievement[] } {
+  const day = today(s, now);
+  day.cards = (day.cards ?? 0) + 1;
+  const card = s.cards[id];
+  let taler = 0;
+  if (firstTry) {
+    day.cardsOk = (day.cardsOk ?? 0) + 1;
+    if (card) s.cards[id] = holdOff(card, now);
+    taler = Math.max(1, Math.round(perSentence(s) * 0.4));
+    addTaler(s, now, taler);
+    addXp(s, 2);
+  } else {
+    if (card) s.cards[id] = slipped(card, now);
+    const heat = (s.stats.wordHeat ??= {});
+    heat[id] = (heat[id] ?? 0) + 1;
+  }
+  const streakUp = updateStreak(s, now);
+  const achievements = checkAchievements(s, catalog, now);
+  s.updatedAt = now;
+  return { taler, streakUp, achievements };
 }
 
 export function chestReady(s: GameState): boolean {

@@ -27,9 +27,15 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
 - **A level engine.** It estimates your CEFR level per area from your answers and the
   corrector's reading of your sentences, delivers new blueprints just above that level every
   day, brings A1 basics back now and then, and tells the corrector how far to push you.
-- **Speed drills (Akkord).** 60-second rounds on articles, plurals, Perfekt, Präteritum,
-  prepositions + case, Wo/Wohin, pronouns, possessives and adjective endings, built from
-  your own machines. They need no AI.
+- **Training: Schnellkarten and Akkord**, two short exercises with separate jobs, no AI needed.
+  *Schnellkarten* ("Welches Wort?"): the English meaning, you type the German with its article;
+  rusting machines first, then today's new words. A word known on the first try keeps its
+  machine from rusting for a few days (twice at most, then it needs a sentence again); a missed
+  one comes back at the end of the round and in the next shift. *Akkord* ("Welche Form?"):
+  cases, adjective endings and verb forms of your own words, aimed at the grammar behind
+  your recent mistakes (shown as "Heute im Fokus"). The timer can be switched off, a mistake
+  stops the round until you have read the right form, and the misses come back in a calm,
+  typed round; they also count as weak spots for the shifts.
 - **Idle-game loop for two years.** Each sentence pays Taler (1 at the start), and Taler build
   the factory, never your vocabulary: a toolbox that adds a Taler per sentence, workers,
   forklifts and trucks that produce while the app is closed, multipliers, export markets, and

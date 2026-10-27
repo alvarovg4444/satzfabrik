@@ -246,7 +246,8 @@ shifts are reviews. Six new machines a day stretch it to about two years.
 | Daily orders + chest with random prize | Variable rewards and small, clear goals (good for ADHD) |
 | Streak tied to a daily sentence goal | Daily habit; streak freezes come from chests |
 | Levels unlock halls, every level hires a worker for free | Steady progression, nothing hidden behind grinding |
-| Akkord drills (60 s) | Automatic forms, fast wins between writing tasks |
+| Schnellkarten | Recall of the word itself (testing effect), many retrievals per minute, holds off rust |
+| Akkord drills (60 s or untimed) | Automatic forms behind the learner's own mistakes, fast wins between writing tasks |
 
 There are no lives, no hearts and no lost progress: mistakes are the learning, so a wrong
 answer still earns a little and shows you exactly what to fix.

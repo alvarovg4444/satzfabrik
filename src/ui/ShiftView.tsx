@@ -1159,7 +1159,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
             Noch eine Schicht
           </button>
           <button type="button" className="btn" onClick={goDrill}>
-            <Icon name="bolt" size={18} /> Akkord-Runde
+            <Icon name="bolt" size={18} /> Training
           </button>
           <button type="button" className="btn ghost" onClick={goFactory}>
             Zur Fabrik

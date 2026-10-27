@@ -34,6 +34,8 @@ export interface Settings {
   voice: string;
   /** On phones and tablets, write with the in-app German keyboard instead of the system's. */
   keyboard: boolean;
+  /** Akkord runs against the clock (off: no time limit). */
+  drillTimer: boolean;
   /** Let the AI write fresh situations for each shift. */
   freshTasks: boolean;
   ai: AISettings;
@@ -46,6 +48,9 @@ export interface DayStat {
   perfect: number;
   drills: number;
   drillOk: number;
+  /** Schnellkarten answered / known on the first try. */
+  cards?: number;
+  cardsOk?: number;
   taler: number;
   shifts: number;
   built: number;
@@ -86,6 +91,8 @@ export interface GameState {
     errors: Partial<Record<ErrorType, number>>;
     /** Recent mistakes per grammar id, decayed daily; drives weak-spot tasks. */
     ruleHeat: Record<string, number>;
+    /** Words recently missed in Akkord and Schnellkarten, decayed daily; Akkord asks them more. */
+    wordHeat?: Record<string, number>;
     heatDay?: string;
     sentences: number;
     perfect: number;
@@ -118,7 +125,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSpeak: false,
   speechRate: 0.95,
   voice: "",
-  keyboard: true,
+  keyboard: false,
+  drillTimer: true,
   freshTasks: true,
   ai: {
     preferred: "auto",
@@ -167,6 +175,8 @@ export function migrate(raw: unknown, now: number): GameState {
   const base = newGame(now);
   if (!raw || typeof raw !== "object") return base;
   const s = raw as Partial<GameState>;
+  // the phone's own keyboard became the default (saves from before drillTimer had the in-app one on)
+  if (s.settings && s.settings.drillTimer === undefined) s.settings = { ...s.settings, keyboard: false };
   return {
     ...base,
     ...s,
