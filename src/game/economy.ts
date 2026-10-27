@@ -118,7 +118,12 @@ export function machineRate(s: GameState, it: Item, card: CardState, now: number
 export function factoryRate(s: GameState, catalog: Catalog, now: number): number {
   let units = staffUnits(s);
   for (const h of hallOutput(s, catalog, now).values()) units += h.units;
-  return units * unitValue(s);
+  return units * unitValue(s) * (1 + streakBonus(s));
+}
+
+/** The streak warms the factory: +5% production per day in a row, up to +50% from day 10. */
+export function streakBonus(s: GameState): number {
+  return 0.05 * Math.min(10, s.streak.current);
 }
 
 /** Hours of production that pile up while the app is closed. */

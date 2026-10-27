@@ -48,9 +48,10 @@ vi.mock("../src/content/catalog", () => {
 });
 
 const { makeCatalog } = await import("../src/content/catalog");
-const { applyGrade, buyUpgrade, claimChest, finishShift, rollover, tick, unlock } = await import("../src/game/actions");
-const { factoryRate, fmtRate, idleEarnings, levelOf, perSentence, storageHours, xpForLevel } = await import("../src/game/economy");
-const { newGame } = await import("../src/game/state");
+const { applyGrade, buyUpgrade, claimChest, finishShift, rollover, STREAK_MIN, tick, unlock } = await import("../src/game/actions");
+const { factoryRate, fmtRate, idleEarnings, levelOf, perSentence, storageHours, streakBonus, xpForLevel } = await import("../src/game/economy");
+const { emptyDay, newGame } = await import("../src/game/state");
+const { dayKey } = await import("../src/engine/text");
 const { buildShift } = await import("../src/engine/tasks");
 const { coerceGrade } = await import("../src/ai/schema");
 
@@ -173,15 +174,45 @@ describe("a graded answer", () => {
     expect(s.stats.ruleHeat["g.weil"]).toBe(1);
   });
 
-  it("counts the daily goal towards the streak", () => {
+  it("keeps the flame going from five sentences a day, whatever the daily goal", () => {
     const s = newGame(T0);
-    s.settings.dailyGoal = 2;
+    s.settings.dailyGoal = 20;
     unlock(s, catalog.get("n.termin")!, T0);
     const task = buildShift({ cards: s.cards, catalog, now: T0, weakRules: [], size: 10 }).find((t) => t.type !== "intro")!;
-    applyGrade(s, catalog, task, grade("correct"), "a", T0);
-    const ev = applyGrade(s, catalog, task, grade("correct"), "b", T0 + 1000);
+    for (let i = 0; i < STREAK_MIN - 1; i++) expect(applyGrade(s, catalog, task, grade("correct"), `a${i}`, T0 + i * 1000).streakUp).toBe(false);
+    const ev = applyGrade(s, catalog, task, grade("correct"), "b", T0 + 9000);
     expect(ev.streakUp).toBe(true);
     expect(s.streak.current).toBe(1);
+  });
+});
+
+describe("streak", () => {
+  it("is counted from the day history when it was never lit", () => {
+    const s = newGame(T0);
+    const yesterday = new Date(T0);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const before = new Date(yesterday);
+    before.setDate(before.getDate() - 1);
+    s.stats.days[dayKey(before.getTime())] = { ...emptyDay(), tasks: 8 };
+    s.stats.days[dayKey(yesterday.getTime())] = { ...emptyDay(), tasks: 12 };
+    s.stats.days[dayKey(T0)] = { ...emptyDay(), tasks: 2 };
+    rollover(s, catalog, T0);
+    expect(s.streak.current).toBe(2);
+    expect(s.streak.lastDay).toBe(dayKey(yesterday.getTime()));
+  });
+
+  it("adds 5% production per day, up to 50%", () => {
+    const s = newGame(T0);
+    unlock(s, catalog.get("n.termin")!, T0);
+    const task = buildShift({ cards: s.cards, catalog, now: T0, weakRules: [], size: 10 }).find((t) => t.type !== "intro")!;
+    applyGrade(s, catalog, task, grade("correct"), "Ich habe morgen einen Termin.", T0);
+    s.streak.current = 0;
+    const base = factoryRate(s, catalog, T0);
+    expect(base).toBeGreaterThan(0);
+    s.streak.current = 4;
+    expect(factoryRate(s, catalog, T0)).toBeCloseTo(base * 1.2);
+    s.streak.current = 40;
+    expect(streakBonus(s)).toBeCloseTo(0.5);
   });
 });
 

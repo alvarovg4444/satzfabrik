@@ -116,6 +116,25 @@ export function deliver(s: GameState, catalog: Catalog, now: number): Item[] {
   return picks;
 }
 
+function streakFromHistory(s: GameState, now: number): void {
+  const d = new Date(now);
+  let run = 0;
+  let last: string | undefined;
+  // today may still be on its way: the run can end today or yesterday
+  for (let i = 0; i < 400; i++) {
+    const k = dayKey(d.getTime());
+    if ((s.stats.days[k]?.tasks ?? 0) >= STREAK_MIN) {
+      run++;
+      last ??= k;
+    } else if (i > 0) break;
+    d.setDate(d.getDate() - 1);
+  }
+  if (!run) return;
+  s.streak.current = run;
+  s.streak.best = Math.max(s.streak.best, run);
+  s.streak.lastDay = last;
+}
+
 /** Once per calendar day: streak bookkeeping, fresh orders, cooling weak spots, the delivery. */
 export function rollover(s: GameState, catalog: Catalog, now: number): void {
   const day = dayKey(now);
@@ -135,6 +154,8 @@ export function rollover(s: GameState, catalog: Catalog, now: number): void {
     }
     s.stats.heatDay = day;
   }
+  // no streak (yet): count it from the day history (days with at least STREAK_MIN sentences)
+  if (!s.streak.current) streakFromHistory(s, now);
   if (s.streak.lastDay && s.streak.current > 0) {
     const missed = daysBetween(s.streak.lastDay, day) - 1;
     if (missed > 0) {
@@ -261,10 +282,13 @@ function checkAchievements(s: GameState, catalog: Catalog, now: number): Achieve
   return got;
 }
 
+/** Sentences that keep the flame going for a day: one short shift. (The daily goal is a separate target.) */
+export const STREAK_MIN = 5;
+
 function updateStreak(s: GameState, now: number): boolean {
   const day = dayKey(now);
   if (s.streak.lastDay === day) return false;
-  if (today(s, now).tasks < s.settings.dailyGoal) return false;
+  if (today(s, now).tasks < STREAK_MIN) return false;
   const continues = s.streak.lastDay && daysBetween(s.streak.lastDay, day) === 1;
   s.streak.current = continues ? s.streak.current + 1 : 1;
   s.streak.best = Math.max(s.streak.best, s.streak.current);
@@ -424,8 +448,13 @@ export function applyGrade(
 }
 
 /** The learner fixed their own sentence after feedback: a bonus, no schedule change. */
+/** Rewriting the sentence correctly from memory pays 60% of the first reward again (at least 2). */
+export function reworkBonus(previousReward: number): number {
+  return Math.max(2, Math.round(previousReward * 0.6));
+}
+
 export function applyRework(s: GameState, now: number, previousReward: number, fixed: string): number {
-  const bonus = Math.max(1, Math.round(previousReward * 0.4));
+  const bonus = reworkBonus(previousReward);
   addTaler(s, now, bonus);
   if (s.journal[0]) s.journal[0].corrected = fixed;
   addXp(s, 3);

@@ -8,7 +8,7 @@ import { weakRules } from "../game/actions";
 import { fmt } from "../game/economy";
 import { ACHIEVEMENTS } from "../game/achievements";
 import { useCatalog, useGame } from "../store/store";
-import { SpeakButton } from "./common";
+import { Icon, SpeakButton } from "./common";
 
 function lastDays(n: number, now: number): string[] {
   const out: string[] = [];
@@ -133,7 +133,7 @@ function Overview({ onPractice }: { onPractice: (id: string) => void }) {
             );
           })}
         </div>
-        <p className="small muted">Grün: Tagesziel ({s.settings.dailyGoal} Sätze) erreicht.</p>
+        <p className="small muted">Grün: Tagesziel ({s.settings.dailyGoal} Sätze) erreicht. Ab 5 Sätzen am Tag brennt die Flamme weiter.</p>
       </section>
 
       <section className="card stack">
@@ -191,13 +191,22 @@ function Overview({ onPractice }: { onPractice: (id: string) => void }) {
 
       <section className="card stack">
         <h3>Erfolge</h3>
-        <div className="row">
-          {ACHIEVEMENTS.map((a) => (
-            <span key={a.id} className={`chip ${s.achievements[a.id] ? "on" : ""}`} title={a.en}>
-              {a.de}
-            </span>
-          ))}
-        </div>
+        <p className="small muted">Jeder Erfolg zahlt einmal Taler aus, sobald du ihn erreichst.</p>
+        <ul className="achievements">
+          {ACHIEVEMENTS.map((a) => {
+            const got = !!s.achievements[a.id];
+            return (
+              <li key={a.id} className={got ? "on" : ""}>
+                <span className="mark" aria-hidden="true">{got ? <Icon name="check" size={14} /> : null}</span>
+                <span className="what">
+                  <b>{a.de}</b>
+                  <span className="small muted">{a.how}</span>
+                </span>
+                <span className="reward small">{got ? "erhalten" : `+${fmt(a.reward)}`}</span>
+              </li>
+            );
+          })}
+        </ul>
       </section>
     </>
   );

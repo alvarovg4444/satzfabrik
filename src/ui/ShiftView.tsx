@@ -7,7 +7,7 @@ import { isDue, stageOf } from "../engine/srs";
 import { introTask, shortName, taskForItem, taskTitle, type Task } from "../engine/tasks";
 import { diffWords, mentions, wordCount } from "../engine/text";
 import { levelLabel, overall } from "../engine/level";
-import { applyGrade, applyRework, deliver, finishShift, newLeftToday, weakRules, type TaskEvents } from "../game/actions";
+import { applyGrade, applyRework, deliver, reworkBonus, finishShift, newLeftToday, weakRules, type TaskEvents } from "../game/actions";
 import { afterShift, applyDiagnosis, cleanShift, coachInput, emptyLog, FOCUS_DONE, localDiagnosis, type ShiftLog } from "../game/coach";
 import { fmt } from "../game/economy";
 import { orderText } from "../game/orders";
@@ -522,6 +522,15 @@ function Feedback({
   const [reworkGrade, setReworkGrade] = useState<{ grade: GradeResult; attempt: string } | null>(null);
   const verdictRef = useRef<HTMLDivElement>(null);
   const ctlRef = useRef<AbortController | null>(null);
+  /** Rewriting from memory: the corrections stay hidden until the attempt is checked. */
+  const blind = rework !== null && (reworkState === "idle" || reworkState === "checking");
+  const bonus = reworkBonus(events.taler);
+  const startRework = () => {
+    setRework("");
+    setReworkGrade(null);
+    setReworkNote("");
+    setReworkState("idle");
+  };
 
   useEffect(() => {
     if (s.settings.autoSpeak) speak(grade.corrected || answer, s.settings.speechRate, s.settings.voice);
@@ -573,7 +582,7 @@ function Feedback({
         <span className="reward">+{fmt(events.taler)}</span>
       </div>
 
-      {gaveUp ? (
+      {blind ? null : gaveUp ? (
         <div className="card plain stack" style={{ gap: 8 }}>
           <span className="eyebrow">So könnte es gehen</span>
           <div className="sentence">
@@ -598,7 +607,7 @@ function Feedback({
         </div>
       )}
 
-      {grade.better ? (
+      {grade.better && !blind ? (
         <div className="card plain stack" style={{ gap: 6 }}>
           <span className="eyebrow">So klingt es natürlicher</span>
           <div className="sentence">
@@ -608,18 +617,22 @@ function Feedback({
         </div>
       ) : null}
 
-      <Cues task={task} items={items} grade={grade} />
-      <TargetNotes grade={grade} items={items} />
-      <ErrorList errors={grade.errors} />
-      {grade.tip ? <p className="small muted">Tipp: {grade.tip}</p> : null}
-      {task.reference && grade.source !== "exact" && !events.success && !gaveUp ? (
-        <p className="small muted">Musterlösung: {task.reference}</p>
-      ) : null}
+      {blind ? null : (
+        <>
+          <Cues task={task} items={items} grade={grade} />
+          <TargetNotes grade={grade} items={items} />
+          <ErrorList errors={grade.errors} />
+          {grade.tip ? <p className="small muted">Tipp: {grade.tip}</p> : null}
+          {task.reference && grade.source !== "exact" && !events.success && !gaveUp ? (
+            <p className="small muted">Musterlösung: {task.reference}</p>
+          ) : null}
+        </>
+      )}
 
       {rework !== null ? (
         <div className="card stack">
-          <span className="eyebrow">Nacharbeit: repariere deinen Satz selbst</span>
-          {reworkState !== "ok" ? (
+          <span className="eyebrow">Nacharbeit: schreib den ganzen Satz richtig, aus dem Kopf · +{fmt(bonus)} Taler</span>
+          {blind ? (
             <Answer value={rework} onChange={setRework} onSubmit={tryRework} autoFocus active={reworkState !== "checking"} />
           ) : null}
           {reworkState === "checking" ? (
@@ -635,13 +648,19 @@ function Feedback({
             </p>
           ) : null}
           {reworkGrade && reworkState !== "checking" ? <ReworkCheck check={reworkGrade} items={items} ok={reworkState === "ok"} /> : null}
-          {reworkState !== "ok" && reworkState !== "checking" ? (
+          {reworkState === "idle" ? (
             <div className="row">
-              <button type="button" className="btn steel" onClick={tryRework}>
-                {reworkGrade ? "Nochmal prüfen" : "Reparatur prüfen"}
+              <button type="button" className="btn steel" disabled={!rework?.trim()} onClick={tryRework}>
+                Prüfen
               </button>
-              <button type="button" className="btn ghost" onClick={() => setRework(reworkGrade?.grade.corrected || grade.corrected)}>
-                Korrektur einsetzen
+              <button type="button" className="btn ghost" onClick={() => setRework(null)}>
+                Korrektur nochmal ansehen
+              </button>
+            </div>
+          ) : reworkState === "nope" ? (
+            <div className="row">
+              <button type="button" className="btn steel" onClick={startRework}>
+                Nochmal aus dem Kopf
               </button>
             </div>
           ) : null}
@@ -650,8 +669,8 @@ function Feedback({
 
       <div className="row">
         {changed && rework === null ? (
-          <button type="button" className="btn steel" onClick={() => setRework(answer)}>
-            Selbst reparieren (+Bonus)
+          <button type="button" className="btn steel" onClick={startRework}>
+            Aus dem Kopf neu schreiben (+{fmt(bonus)})
           </button>
         ) : null}
         <button type="button" className="btn primary" onClick={onNext} autoFocus={!changed}>

@@ -1,4 +1,5 @@
-import { factoryRate, fmt, fmtRate, levelOf, xpForLevel } from "../game/economy";
+import { STREAK_MIN } from "../game/actions";
+import { factoryRate, fmt, fmtRate, levelOf, streakBonus, xpForLevel } from "../game/economy";
 import { emptyDay } from "../game/state";
 import { dayKey } from "../engine/text";
 import { useCatalog, useGame } from "../store/store";
@@ -35,8 +36,12 @@ export function TopBar({ onSettings }: { onSettings: () => void }) {
           <span className="pill" title="Fabrik-Level">
             Lvl {lvl}
           </span>
-          <span className={`pill ${s.streak.current > 0 ? "flame" : ""}`} title="Tage in Folge mit erfülltem Tagesziel">
+          <span
+            className={`pill ${s.streak.current > 0 ? "flame" : ""}`}
+            title={`Tage in Folge mit mindestens ${STREAK_MIN} Sätzen. Jeder Tag bringt +5 % Produktion (bis +50 %).`}
+          >
             <Icon name="flame" size={14} /> {s.streak.current}
+            {s.streak.current > 0 ? <span className="small"> · +{Math.round(streakBonus(s) * 100)} %</span> : null}
           </span>
           <span className="pill" title="Heutiges Ziel: Sätze" style={goalDone ? { borderColor: "var(--ok)", color: "var(--ok)" } : undefined}>
             {goalDone ? <Icon name="check" size={14} /> : null}
