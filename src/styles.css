@@ -299,6 +299,10 @@ main.wrap {
   font-size: 0.78rem;
   white-space: nowrap;
 }
+button.pill {
+  color: inherit;
+  cursor: pointer;
+}
 .pill.flame {
   border-color: var(--rust);
   color: var(--rust);
@@ -1779,6 +1783,57 @@ textarea.input {
 }
 @media (prefers-reduced-motion: reduce) {
   .kb {
+    animation: none;
+  }
+}
+
+/* achievement and flame cards */
+.celebrate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding-top: 4px;
+}
+.celebrate h2 {
+  margin: 0;
+}
+.celebrate-reward {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--ok);
+  margin: 4px 0;
+}
+.pixel-pop {
+  animation: pixel-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.pixel-flame {
+  transform-origin: 50% 100%;
+  animation: flicker 1.4s steps(2, end) infinite;
+}
+.pixel-flame.out {
+  animation: none;
+  opacity: 0.6;
+}
+@keyframes pixel-pop {
+  from {
+    transform: scale(0.3) rotate(-12deg);
+    opacity: 0;
+  }
+}
+@keyframes flicker {
+  0%,
+  100% {
+    transform: scaleY(1) skewX(0deg);
+  }
+  50% {
+    transform: scaleY(1.06) skewX(-2deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixel-pop,
+  .pixel-flame {
     animation: none;
   }
 }

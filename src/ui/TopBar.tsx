@@ -1,8 +1,10 @@
-import { STREAK_MIN } from "../game/actions";
-import { factoryRate, fmt, fmtRate, levelOf, streakBonus, xpForLevel } from "../game/economy";
+import { factoryRate, fmt, fmtRate, levelOf, xpForLevel } from "../game/economy";
 import { emptyDay } from "../game/state";
 import { dayKey } from "../engine/text";
 import { useCatalog, useGame } from "../store/store";
+import { useState } from "react";
+import { createPortal } from "react-dom";
+import { FlameSheet } from "./Celebrations";
 import { Icon, LiveCoins } from "./common";
 
 export function TopBar({ onSettings }: { onSettings: () => void }) {
@@ -16,6 +18,7 @@ export function TopBar({ onSettings }: { onSettings: () => void }) {
   const pct = Math.min(100, ((s.xp - from) / Math.max(1, to - from)) * 100);
   const day = s.stats.days[dayKey(now)] ?? emptyDay();
   const goalDone = day.tasks >= s.settings.dailyGoal;
+  const [flame, setFlame] = useState(false);
   return (
     <header className="topbar">
       <div className="wrap">
@@ -36,13 +39,14 @@ export function TopBar({ onSettings }: { onSettings: () => void }) {
           <span className="pill" title="Fabrik-Level">
             Lvl {lvl}
           </span>
-          <span
+          <button
+            type="button"
             className={`pill ${s.streak.current > 0 ? "flame" : ""}`}
-            title={`Tage in Folge mit mindestens ${STREAK_MIN} Sätzen. Jeder Tag bringt +5 % Produktion (bis +50 %).`}
+            aria-label={`Flamme: ${s.streak.current} Tage in Folge`}
+            onClick={() => setFlame(true)}
           >
             <Icon name="flame" size={14} /> {s.streak.current}
-            {s.streak.current > 0 ? <span className="small"> · +{Math.round(streakBonus(s) * 100)} %</span> : null}
-          </span>
+          </button>
           <span className="pill" title="Heutiges Ziel: Sätze" style={goalDone ? { borderColor: "var(--ok)", color: "var(--ok)" } : undefined}>
             {goalDone ? <Icon name="check" size={14} /> : null}
             {Math.min(day.tasks, s.settings.dailyGoal)}/{s.settings.dailyGoal} heute
@@ -50,6 +54,8 @@ export function TopBar({ onSettings }: { onSettings: () => void }) {
           {s.combo > 1 ? <span className="pill combo">Kombo ×{s.combo.toFixed(1)}</span> : null}
         </div>
       </div>
+      {/* outside the sticky bar, so the card covers the whole page */}
+      {flame ? createPortal(<FlameSheet onClose={() => setFlame(false)} />, document.body) : null}
       <div className="xpbar" aria-hidden="true">
         <i style={{ width: `${pct}%` }} />
       </div>

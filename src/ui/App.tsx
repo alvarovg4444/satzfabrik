@@ -3,6 +3,7 @@ import { isDue } from "../engine/srs";
 import { fmt } from "../game/economy";
 import { prefetchNextShift } from "../store/prefetch";
 import { store, useGame, useMeta } from "../store/store";
+import { AchievementPopup } from "./Celebrations";
 import { Icon, Sheet, Toasts } from "./common";
 import { DrillView } from "./DrillView";
 import { FactoryView } from "./FactoryView";
@@ -148,6 +149,7 @@ export function App() {
         </div>
       </nav>
       <WelcomeBack />
+      <AchievementPopup />
       <Toasts />
     </div>
   );

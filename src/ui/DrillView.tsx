@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { showAchievements } from "./Celebrations";
 import { BUILTIN_ITEMS } from "../content/catalog";
 import type { Item } from "../content/types";
 import { buildDrillRound, checkDrill, DRILL_LABELS, drillSeed, type DrillQ } from "../engine/drills";
@@ -43,7 +44,7 @@ export function DrillView() {
     setPhase({ k: "done" });
     const r = store.update((d, c) => applyDrill(d, c, Date.now(), { correct: final.ok, total: final.total, earned: final.earned }));
     for (const o of r.orders) toast(<span>Auftrag erledigt: <b>+{fmt(o.reward)}</b></span>);
-    for (const a of r.achievements) toast(<span>Erfolg: <b>{a.de}</b> +{fmt(a.reward)}</span>);
+    showAchievements(r.achievements);
   };
 
   useEffect(() => {

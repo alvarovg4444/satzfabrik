@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { showAchievements } from "./Celebrations";
 import { checkRework, diagnoseShift, freshenTasks, gradeAnswer, selfGrade, type SelfRating } from "../ai/corrector";
 import { AIError } from "../ai/providers";
 import type { GradeResult, TargetStatus } from "../ai/schema";
@@ -99,8 +100,8 @@ function celebrate(events: TaskEvents, grade: GradeResult, anchor: HTMLElement |
     if (it) toast(<span><b>{shortName(it)}</b> steigt auf Stufe {up.to}</span>);
   }
   for (const o of events.orders) toast(<span>Auftrag erledigt: <b>+{fmt(o.reward)}</b> · {orderText(o).de}</span>, 4500);
-  for (const a of events.achievements) toast(<span>Erfolg: <b>{a.de}</b> +{fmt(a.reward)}</span>, 5000);
-  if (events.streakUp) toast(<span>Tagesziel erreicht! Streak: <b>{store.get().streak.current}</b></span>, 5000);
+  showAchievements(events.achievements);
+  if (events.streakUp) toast(<span>Die Flamme brennt heute: <b>{store.get().streak.current}</b> {store.get().streak.current === 1 ? "Tag" : "Tage"} in Folge</span>, 5000);
   if (events.levelUp) {
     sfx.levelUp();
     confetti(["#f2b705", "#2c6a78", "#b0432b", "#2f8a52"]);
@@ -946,7 +947,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
       sfx.coin();
       setPhase({ k: "done", bonus: r.bonus });
       for (const o of r.orders) toast(<span>Auftrag erledigt: <b>+{fmt(o.reward)}</b></span>);
-      for (const a of r.achievements) toast(<span>Erfolg: <b>{a.de}</b> +{fmt(a.reward)}</span>);
+      showAchievements(r.achievements);
       const practised = new Set(tasks.slice(0, index + 1).flatMap((t) => t.targets));
       const learned = store.update((d) => afterShift(d, practised));
       for (const f of learned) {
