@@ -1301,8 +1301,12 @@ textarea.input {
   margin: 0;
   font-weight: 700;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+.verdict-line s {
+  white-space: nowrap;
 }
 .verdict-line.ok {
   color: var(--ok);
@@ -1914,4 +1918,7 @@ textarea.input {
   .pixel-flame {
     animation: none;
   }
+}
+s.was {
+  color: var(--brick);
 }

@@ -11,6 +11,7 @@ import { noteFocusResult } from "./coach";
 import { comboCap, factoryRate, idleEarnings, levelOf, perSentence, shiftBonus, taskReward, xpMult } from "./economy";
 import { dailyOrders, openChest, type ChestPrize, type Order } from "./orders";
 import { emptyDay, type DayStat, type GameState } from "./state";
+import { noteMistakes, reviewMistake, seedMistakes } from "./mistakes";
 import { KIND_RULE } from "./training";
 import { UPGRADE_BY_ID, upgradeCost, type UpgradeId } from "./upgrades";
 
@@ -157,6 +158,7 @@ export function rollover(s: GameState, catalog: Catalog, now: number): void {
       }
     s.stats.heatDay = day;
   }
+  seedMistakes(s, catalog, now);
   // no streak (yet): count it from the day history (days with at least STREAK_MIN sentences)
   if (!s.streak.current) streakFromHistory(s, now);
   if (s.streak.lastDay && s.streak.current > 0) {
@@ -408,6 +410,8 @@ export function applyGrade(
     errors: grade.errors.map((e) => ({ type: e.type, wrong: e.wrong, right: e.right, explain: e.explain })),
   });
   if (s.journal.length > 300) s.journal.length = 300;
+  // word mistakes (article, plural, spelling, word choice) become Fehlerwörter for Schnellkarten
+  if (!opts.gaveUp) noteMistakes(s, catalog, grade, now);
 
   // Orders
   const words = wordCount(answer);
@@ -537,6 +541,31 @@ export function applyCard(
   const achievements = checkAchievements(s, catalog, now);
   s.updatedAt = now;
   return { taler, streakUp, achievements };
+}
+
+/** A Fehlerwort on a Schnellkarte (first answer of the round): moves it along its 1-3-7-14-30-day rhythm. */
+export function applyMistakeCard(
+  s: GameState,
+  catalog: Catalog,
+  now: number,
+  key: string,
+  ok: boolean,
+): { taler: number; streakUp: boolean; achievements: Achievement[]; result: "next" | "done" | "again" } {
+  const day = today(s, now);
+  day.cards = (day.cards ?? 0) + 1;
+  const result = reviewMistake(s, key, ok, now);
+  let taler = 0;
+  if (ok) {
+    day.cardsOk = (day.cardsOk ?? 0) + 1;
+    // a fixed mistake is worth a little more than a plain card
+    taler = Math.max(1, Math.round(perSentence(s) * (result === "done" ? 1.5 : 0.5)));
+    addTaler(s, now, taler);
+    addXp(s, 3);
+  }
+  const streakUp = updateStreak(s, now);
+  const achievements = checkAchievements(s, catalog, now);
+  s.updatedAt = now;
+  return { taler, streakUp, achievements, result };
 }
 
 export function chestReady(s: GameState): boolean {

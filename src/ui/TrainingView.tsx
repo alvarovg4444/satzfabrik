@@ -24,7 +24,7 @@ export function TrainingView() {
   if (mode === "akkord") return <DrillView onBack={() => setMode("menu")} />;
 
   // rusting words first; otherwise the forms behind recent mistakes
-  const suggest: Mode = waiting >= 5 || (waiting > 0 && !focus.focus.length) ? "cards" : "akkord";
+  const suggest: Mode = waiting.total >= 5 || waiting.mistakes > 0 || (waiting.total > 0 && !focus.focus.length) ? "cards" : "akkord";
   return (
     <section className="stack">
       <div>
@@ -40,9 +40,10 @@ export function TrainingView() {
           <span className="eyebrow">Schnellkarten · Welches Wort?{suggest === "cards" ? " · Empfohlen" : ""}</span>
           <b>Englisch sehen, Deutsch mit Artikel schreiben</b>
           <span className="small muted">
-            {waiting
-              ? `${waiting} ${waiting === 1 ? "Wort wartet" : "Wörter warten"}: rostende Maschinen und neue Wörter von heute. Gewusste Wörter rosten ein paar Tage nicht.`
+            {waiting.total
+              ? `${waiting.total} ${waiting.total === 1 ? "Wort wartet" : "Wörter warten"}: rostende Maschinen, neue Wörter von heute${waiting.mistakes ? ` und ${waiting.mistakes} ${waiting.mistakes === 1 ? "Fehlerwort" : "Fehlerwörter"} aus deinen Sätzen` : ""}.`
               : "Alles frisch: gerade rostet nichts."}
+            {waiting.pile ? ` Im Fehlerstapel: ${waiting.pile} ${waiting.pile === 1 ? "Wort" : "Wörter"} (wieder nach 1, 3, 7, 14 und 30 Tagen).` : ""}
           </span>
         </span>
       </button>

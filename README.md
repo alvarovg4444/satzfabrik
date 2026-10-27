@@ -31,7 +31,10 @@ Claude checks every sentence, explains each mistake, and keeps track of your wea
   *Schnellkarten* ("Welches Wort?"): the English meaning, you type the German with its article;
   rusting machines first, then today's new words. A word known on the first try keeps its
   machine from rusting for a few days (twice at most, then it needs a sentence again); a missed
-  one comes back at the end of the round and in the next shift. *Akkord* ("Welche Form?"):
+  one comes back at the end of the round and in the next shift. Word mistakes from your own
+  sentences (wrong article or plural, spelling, wrong word) land on a *Fehlerstapel* and come
+  back as cards after 1, 3, 7, 14 and 30 days, with what you wrote and the corrected sentence;
+  a miss starts the word over. The corrector names the word's dictionary form for this. *Akkord* ("Welche Form?"):
   cases, adjective endings and verb forms of your own words, aimed at the grammar behind
   your recent mistakes (shown as "Heute im Fokus"). The timer can be switched off, a mistake
   stops the round until you have read the right form, and the misses come back in a calm,

@@ -89,7 +89,7 @@ How to judge:
    "comment": max 12 words in ${L} about how the target was used.
 4. "corrected": the learner's answer with the smallest changes that make it correct. Keep their words and ideas. If there is no error, repeat the answer exactly.
 5. "better": how a native speaker would say it more naturally, only if clearly better than "corrected"; otherwise "". Keep it one small step above the learner's level, so they can copy it. It must still use every target (the same word, or the same grammar structure): the learner is practising exactly that. If the most natural wording would drop a target, give the most natural wording that keeps it, or "".
-6. "errors": one entry per mistake. "wrong" = the exact words from the learner's answer, "right" = the corrected words, "type" = one of: ${ERROR_LIST}. "rule" = the id of the grammar topic from the list below that explains the mistake, or "". "explain" = why, max 18 words, in ${L}.
+6. "errors": one entry per mistake. "wrong" = the exact words from the learner's answer, "right" = the corrected words, "type" = one of: ${ERROR_LIST}. "rule" = the id of the grammar topic from the list below that explains the mistake, or "". "explain" = why, max 18 words, in ${L}. "word": when the mistake is in one word itself (wrong article/gender, wrong plural, spelling, wrong word choice), that word's dictionary form, nouns with their article in the nominative singular ("der Tisch", "reservieren", "pünktlich"); for every other mistake (case, endings, word order, verb form, punctuation …) "". "en": the English meaning of "word", or "".
 7. "quality": "perfect" (no errors), "minor" (only small slips such as spelling, a comma or one ending), "major" (errors that change the meaning, or several errors).
 8. "praise": max 8 words in simple German, about something specific they did well. "tip": one short hint in ${L} for next time, or "".
 9. "level": the CEFR level this answer shows, judging range and accuracy together: "A1" (very simple, with basic mistakes), "A2" (simple sentences, mostly correct), "B1" (connected ideas, subordinate clauses, mostly correct), "B2" (varied and precise structures, few mistakes), "C1". A short, correct answer to a simple task is "A2", not higher.
@@ -97,7 +97,7 @@ How to judge:
 Grammar topics for "rule": ${GRAMMAR_INDEX}
 
 Reply with only this JSON, no other text:
-{"targets":[{"id":"...","status":"correct","comment":"..."}],"quality":"perfect","corrected":"...","better":"","errors":[{"wrong":"...","right":"...","type":"case","rule":"g.praep-dativ","explain":"..."}],"praise":"...","tip":"","level":"A2"}`;
+{"targets":[{"id":"...","status":"correct","comment":"..."}],"quality":"perfect","corrected":"...","better":"","errors":[{"wrong":"...","right":"...","type":"case","rule":"g.praep-dativ","explain":"...","word":"","en":""}],"praise":"...","tip":"","level":"A2"}`;
 }
 
 export interface GenRequest {

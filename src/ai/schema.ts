@@ -25,6 +25,10 @@ export const GradeSchema = z.object({
       type: z.enum(ERROR_KEYS),
       rule: z.string(),
       explain: z.string(),
+      /** For a mistake in one word (article, plural, spelling, word choice): its dictionary form, e.g. "der Tisch"; else "". */
+      word: z.string(),
+      /** The English meaning of that word, or "". */
+      en: z.string(),
     }),
   ),
   praise: z.string(),
@@ -106,6 +110,8 @@ export function coerceGrade(
       type: (ERROR_KEYS as readonly string[]).includes(str(e.type)) ? (str(e.type) as ErrorType) : "other",
       rule: str(e.rule),
       explain: str(e.explain),
+      word: str(e.word),
+      en: str(e.en),
     }))
     .filter((e) => e.wrong || e.right || e.explain);
   const levelRaw = str(o.level).toUpperCase();

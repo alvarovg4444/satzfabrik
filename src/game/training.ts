@@ -3,6 +3,7 @@ import type { ErrorType, Item } from "../content/types";
 import type { DrillKind } from "../engine/drills";
 import { isDue, stageOf } from "../engine/srs";
 import { dayKey, norm } from "../engine/text";
+import { dueMistakes, mistakeItem, MISTAKES_PER_ROUND, type MistakeCard } from "./mistakes";
 import type { GameState } from "./state";
 
 /*
@@ -35,9 +36,40 @@ export function cardQueue(s: GameState, catalog: Catalog, now: number, max = CAR
   return [...due.map((x) => x.it), ...fresh.map((x) => x.it)].slice(0, max);
 }
 
-/** How many cards are waiting (for the start screen). */
-export function cardsWaiting(s: GameState, catalog: Catalog, now: number): number {
-  return cardQueue(s, catalog, now, 999).length;
+/** One Schnellkarte: a course word, or a Fehlerwort from the learner's own sentences. */
+export interface CardEntry {
+  key: string;
+  item: Item;
+  mistake?: MistakeCard;
+}
+
+/**
+ * A round: due Fehlerwörter (up to MISTAKES_PER_ROUND) mixed in between the rusting and
+ * new words, every second card, so a round stays about three minutes.
+ */
+export function trainingCards(s: GameState, catalog: Catalog, now: number, max = CARDS_PER_ROUND): CardEntry[] {
+  const mistakes = dueMistakes(s, now)
+    .slice(0, MISTAKES_PER_ROUND)
+    .map(({ key, card }): CardEntry => ({ key: `m:${key}`, item: mistakeItem(catalog, card), mistake: card }));
+  const taken = new Set(mistakes.map((m) => m.item.id));
+  const words = cardQueue(s, catalog, now, max)
+    .filter((it) => !taken.has(it.id))
+    .slice(0, Math.max(0, max - mistakes.length))
+    .map((it): CardEntry => ({ key: it.id, item: it }));
+  const out: CardEntry[] = [];
+  while (words.length || mistakes.length) {
+    const w = words.shift();
+    if (w) out.push(w);
+    const m = mistakes.shift();
+    if (m) out.push(m);
+  }
+  return out;
+}
+
+/** How many cards are waiting (for the start screen), and how many of them are Fehlerwörter. */
+export function cardsWaiting(s: GameState, catalog: Catalog, now: number): { total: number; mistakes: number; pile: number } {
+  const mistakes = dueMistakes(s, now).length;
+  return { total: cardQueue(s, catalog, now, 999).length + mistakes, mistakes, pile: Object.keys(s.mistakes ?? {}).length };
 }
 
 export type CardCheck = "ok" | "article" | "wrong";

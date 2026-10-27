@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
-import type { Item } from "../content/types";
-import { applyCard } from "../game/actions";
+import { applyCard, applyMistakeCard } from "../game/actions";
 import { fmt } from "../game/economy";
-import { cardHint, cardQueue, checkCard, type CardCheck } from "../game/training";
+import { cardHint, checkCard, trainingCards, type CardCheck, type CardEntry } from "../game/training";
+import { MISTAKE_DAYS } from "../game/mistakes";
 import { store, useCatalog } from "../store/store";
 import { showAchievements } from "./Celebrations";
 import { floatCoins, Icon, SpeakButton, toast } from "./common";
@@ -10,7 +10,7 @@ import { sfx } from "./fx";
 import { Keyboard, useInAppKeyboard } from "./Keyboard";
 
 /** The forms that belong to the word: shown with the answer. */
-function forms(it: Item): string {
+function forms(it: CardEntry["item"]): string {
   switch (it.kind) {
     case "noun":
       return it.plural ? `Plural: die ${it.plural}` : "kein Plural";
@@ -23,7 +23,13 @@ function forms(it: Item): string {
   }
 }
 
-type Result = { check: CardCheck; given: string };
+type Result = { check: CardCheck; given: string; first: boolean };
+
+/** Where a Fehlerwort goes after a right answer (its step before this answer). */
+function mistakeNext(m: { step: number }): string {
+  const days = MISTAKE_DAYS[m.step + 1];
+  return days ? `Fehlerwort: wieder in ${days} Tagen.` : "Fehlerwort geschafft, es verlässt den Stapel.";
+}
 
 /**
  * Schnellkarten: "Welches Wort?" The English meaning, and the learner types the German
@@ -33,7 +39,7 @@ type Result = { check: CardCheck; given: string };
  */
 export function CardsView({ onBack }: { onBack: () => void }) {
   const catalog = useCatalog();
-  const [queue, setQueue] = useState<Item[]>(() => cardQueue(store.get(), catalog, Date.now()));
+  const [queue, setQueue] = useState<CardEntry[]>(() => trainingCards(store.get(), catalog, Date.now()));
   const [round, setRound] = useState(() => ({ size: queue.length, firstOk: 0, earned: 0 }));
   /** Words already answered once this round (re-asks earn nothing and change nothing). */
   const seen = useRef(new Set<string>());
@@ -43,11 +49,13 @@ export function CardsView({ onBack }: { onBack: () => void }) {
   const inApp = useInAppKeyboard();
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  const it = queue[0];
-  const waiting = useMemo(() => (it ? 0 : cardQueue(store.get(), catalog, Date.now()).length), [it, catalog]);
+  const entry = queue[0];
+  const it = entry?.item;
+  const mistake = entry?.mistake;
+  const waiting = useMemo(() => (entry ? 0 : trainingCards(store.get(), catalog, Date.now()).length), [entry, catalog]);
 
   const restart = () => {
-    const q = cardQueue(store.get(), catalog, Date.now());
+    const q = trainingCards(store.get(), catalog, Date.now());
     seen.current = new Set();
     setQueue(q);
     setRound({ size: q.length, firstOk: 0, earned: 0 });
@@ -56,12 +64,15 @@ export function CardsView({ onBack }: { onBack: () => void }) {
   };
 
   const answer = (given: string) => {
-    if (!it || result) return;
+    if (!entry || !it || result) return;
     const check = checkCard(it, given);
-    const first = !seen.current.has(it.id);
-    seen.current.add(it.id);
+    const first = !seen.current.has(entry.key);
+    seen.current.add(entry.key);
     if (first) {
-      const r = store.update((d, c) => applyCard(d, c, Date.now(), it.id, check === "ok"));
+      const r = store.update((d, c) =>
+        entry.mistake ? applyMistakeCard(d, c, Date.now(), entry.key.slice(2), check === "ok") : applyCard(d, c, Date.now(), it.id, check === "ok"),
+      );
+      if ("result" in r && r.result === "done") toast(<span>Fehlerwort geschafft: <b>{it.de}</b> sitzt jetzt</span>, 4000);
       if (r.taler) floatCoins(r.taler, boxRef.current);
       setRound((x) => ({ ...x, firstOk: x.firstOk + (check === "ok" ? 1 : 0), earned: x.earned + r.taler }));
       if (r.streakUp) toast(<span>Die Flamme brennt heute: <b>{store.get().streak.current}</b> {store.get().streak.current === 1 ? "Tag" : "Tage"} in Folge</span>, 5000);
@@ -69,11 +80,11 @@ export function CardsView({ onBack }: { onBack: () => void }) {
     }
     if (check === "ok") sfx.coin();
     else sfx.bad();
-    setResult({ check, given });
+    setResult({ check, given, first });
   };
 
   const next = () => {
-    if (!it) return;
+    if (!entry) return;
     const missed = result && result.check !== "ok";
     // a missed word comes back at the end: the round ends with every word typed right once
     setQueue((q) => (missed ? [...q.slice(1), q[0]] : q.slice(1)));
@@ -82,7 +93,7 @@ export function CardsView({ onBack }: { onBack: () => void }) {
     setKeys(true);
   };
 
-  if (!it) {
+  if (!entry || !it) {
     const done = round.size > 0;
     return (
       <section className="card stack">
@@ -126,7 +137,10 @@ export function CardsView({ onBack }: { onBack: () => void }) {
         <span className="num small muted">noch {left}</span>
       </div>
       <div ref={boxRef} className={`card stack flashcard ${result ? (result.check === "ok" ? "flash-ok" : "flash-bad") : ""}`}>
-        <span className="eyebrow">{cardHint(it)}</span>
+        <span className="eyebrow">
+          {mistake ? "Dein Fehlerwort · " : ""}
+          {cardHint(it)}
+        </span>
         <div className="drill-prompt">{it.en}</div>
         {!result ? (
           <>
@@ -173,13 +187,24 @@ export function CardsView({ onBack }: { onBack: () => void }) {
                 <s>{result.given}</s> {result.check === "article" ? "– fast, nur der Artikel stimmt nicht" : ""}
               </p>
             ) : null}
+            {mistake ? (
+              <p className="small">
+                Im Satz hattest du: <s className="was">{mistake.wrong}</s>
+              </p>
+            ) : null}
             <div className="sentence">
               <p className="answer-big">{it.de}</p>
               <SpeakButton text={it.de} />
             </div>
             {forms(it) ? <p className="small">{forms(it)}</p> : null}
-            <p className="small muted">{it.example.de}</p>
-            {result.check !== "ok" ? <p className="small muted">Die Karte kommt am Ende der Runde noch einmal.</p> : null}
+            <p className="small muted">{mistake ? `Richtig: ${mistake.sentence}` : it.example.de}</p>
+            {result.check !== "ok" ? (
+              <p className="small muted">
+                Die Karte kommt am Ende der Runde noch einmal{mistake ? ", und das Fehlerwort fängt wieder bei einem Tag an." : "."}
+              </p>
+            ) : mistake && result.first ? (
+              <p className="small muted">{mistakeNext(mistake)}</p>
+            ) : null}
             <button type="button" className="btn primary block" autoFocus onClick={next}>
               Weiter <Icon name="arrow" size={18} />
             </button>

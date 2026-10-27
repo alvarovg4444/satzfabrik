@@ -65,7 +65,7 @@ function grade(status: "correct" | "wrong", ids = ["n.termin"]) {
     quality: status === "correct" ? ("perfect" as const) : ("major" as const),
     corrected: "Ich habe morgen einen Termin.",
     better: "",
-    errors: status === "correct" ? [] : [{ wrong: "einen", right: "einen", type: "case" as const, rule: "g.weil", explain: "" }],
+    errors: status === "correct" ? [] : [{ wrong: "einen", right: "einen", type: "case" as const, rule: "g.weil", explain: "", word: "", en: "" }],
     praise: "",
     tip: "",
     source: "ai" as const,

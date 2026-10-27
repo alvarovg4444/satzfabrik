@@ -5,6 +5,7 @@ import { newLevelState, type LevelState } from "../engine/level";
 import type { CardState } from "../engine/srs";
 import type { TaskType } from "../engine/tasks";
 import type { CoachState } from "./coach";
+import type { MistakeCard } from "./mistakes";
 import type { Order } from "./orders";
 import type { UpgradeId } from "./upgrades";
 
@@ -110,6 +111,10 @@ export interface GameState {
   delivery?: { day: string; ids: string[] };
   /** The coach's last reading and the grammar in focus. */
   coach?: CoachState;
+  /** Fehlerwörter: words the learner got wrong in sentences, for Schnellkarten (key: normalised word). */
+  mistakes?: Record<string, MistakeCard>;
+  /** The sentence archive's old mistakes were added to the pile once. */
+  mistakesSeeded?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

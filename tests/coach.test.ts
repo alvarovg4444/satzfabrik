@@ -29,7 +29,7 @@ function game() {
   return s;
 }
 
-const dativ = (wrong: string, right: string) => ({ wrong, right, type: "case" as const, rule: "g.praep-dativ", explain: "mit + Dativ" });
+const dativ = (wrong: string, right: string) => ({ wrong, right, type: "case" as const, rule: "g.praep-dativ", explain: "mit + Dativ", word: "", en: "" });
 
 function grade(id: string, ok: boolean): GradeResult {
   return {
