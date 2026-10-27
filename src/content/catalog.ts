@@ -1,5 +1,6 @@
 import { EXPRESSIONS } from "./expressions";
 import { EXPRESSIONS_B2, GRAMMAR_B2 } from "./grammar-b2";
+import { GRAMMAR_B1_MORE } from "./grammar-b1-more";
 import { GRAMMAR_B2_MORE } from "./grammar-b2-more";
 import { GRAMMAR_A1, GRAMMAR_B1_EXTRA } from "./grammar-extra";
 import { GRAMMAR_FAELLE } from "./grammar-faelle";
@@ -17,7 +18,7 @@ import { VOCAB_B2, VOCAB_BASICS } from "./vocab-b2";
 import { VOCAB_FREQ } from "./vocab-freq";
 import { WORDS } from "./words";
 
-export const GRAMMAR: GramItem[] = [...GRAMMAR_SATZBAU, ...GRAMMAR_VERBEN, ...GRAMMAR_FAELLE, ...GRAMMAR_A1, ...GRAMMAR_B1_EXTRA, ...GRAMMAR_B2, ...GRAMMAR_B2_MORE];
+export const GRAMMAR: GramItem[] = [...GRAMMAR_SATZBAU, ...GRAMMAR_VERBEN, ...GRAMMAR_FAELLE, ...GRAMMAR_A1, ...GRAMMAR_B1_EXTRA, ...GRAMMAR_B1_MORE, ...GRAMMAR_B2, ...GRAMMAR_B2_MORE];
 
 /**
  * The hand-written core (grammar, the first nouns, verbs, words and phrases), then the

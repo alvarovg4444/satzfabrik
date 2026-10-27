@@ -96,7 +96,7 @@ a topic right away.
 
 ## Where the content comes from
 
-The curriculum has these layers, 5,648 items in all (A1 601, A2 985, B1 2,420, B2 1,642):
+The curriculum has these layers, 5,652 items in all (A1 601, A2 985, B1 2,425, B2 1,641):
 
 - **A hand-written core** of 503 items: the grammar structures, everyday words and
   expressions an A2–B1 learner needs most, each with a usage note.
@@ -107,7 +107,7 @@ The curriculum has these layers, 5,648 items in all (A1 601, A2 985, B1 2,420, B
   the raw lists are not part of the repository. Austrian/Swiss-only variants, abbreviations
   and function words that a grammar machine already teaches are left out; homonyms (die Bank,
   bank and bench) are separate items.
-- **Grammar** grows to 95 structures (114 with the B2 ones): 11 A1 basics (articles, present endings, questions,
+- **Grammar** grows to 95 structures (118 with the B2 ones and a check against a B1 coursebook: derselbe, Präteritum for writing, alles, was … / dort, wo …, un- and -los): 11 A1 basics (articles, present endings, questions,
   plural, *es gibt*, *gern*, the time, *man* …) for the refreshers, and the B1 gaps
   (*falls/sobald/solange*, participles as adjectives, nominalisation, reported speech,
   relative clauses with prepositions, *sodass*, *indem*, *als ob*, passive with modal verbs,
@@ -139,7 +139,7 @@ really contains its word, so the "missing word" check works on real answers.
 
 ### Situations and sentences
 
-Built in are two situations written for each of the 5,648 words and structures
+Built in are two situations written for each of the 5,652 words and structures
 (`src/content/item-situations.json`: simple German with English, about the learner's life
 in Austria, without the target word in the text), 90 general situations by topic for
 imported words, three translation sentences and two rewrites per grammar structure, and one

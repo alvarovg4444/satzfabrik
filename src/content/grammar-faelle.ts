@@ -207,7 +207,7 @@ export const GRAMMAR_FAELLE: GramItem[] = [
     en: "Genitive",
     name: "Genitiv",
     cue: "des/der …-s, wegen, trotz, während",
-    rule: "The genitive shows who or what something belongs to: das Büro des Chefs, die Wohnung meiner Eltern. Masculine and neuter: des/eines/meines + -s or -es on the noun (des Vertrags, des Hauses); feminine and plural: der/einer/meiner, with no ending on the noun. The prepositions wegen, trotz, während and statt also take the genitive (wegen des Staus).",
+    rule: "The genitive shows who or what something belongs to: das Büro des Chefs, die Wohnung meiner Eltern. Masculine and neuter: des/eines/meines + -s or -es on the noun (des Vertrags, des Hauses); feminine and plural: der/einer/meiner, with no ending on the noun. The prepositions wegen, trotz, während and statt also take the genitive (wegen des Staus), and so do innerhalb (within) and außerhalb (outside): innerhalb einer Woche, außerhalb der Stadt.",
     pattern: "Nomen + des/eines …-(e)s (m/n) · der/einer … (f/Pl.) · wegen/trotz/während/statt + Genitiv",
     example: { de: "Der Name des Vermieters steht im Mietvertrag.", en: "The landlord's name is in the rental agreement." },
     examples: [

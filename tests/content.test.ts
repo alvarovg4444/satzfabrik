@@ -27,7 +27,7 @@ function germanStrings(it: Item): string[] {
 describe("curriculum", () => {
   it("has a substantial amount of content", () => {
     const by = (k: Item["kind"]) => BUILTIN_ITEMS.filter((i) => i.kind === k).length;
-    expect(GRAMMAR.length).toBe(114);
+    expect(GRAMMAR.length).toBe(118);
     expect(by("noun")).toBeGreaterThanOrEqual(2000);
     expect(by("verb")).toBeGreaterThanOrEqual(750);
     expect(by("expr")).toBeGreaterThanOrEqual(100);

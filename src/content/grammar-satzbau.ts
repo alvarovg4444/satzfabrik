@@ -508,7 +508,7 @@ export const GRAMMAR_SATZBAU: GramItem[] = [
     en: "infinitive with zu (to do)",
     name: "Infinitiv mit zu",
     cue: "vergessen/versuchen … zu + Infinitiv",
-    rule: "After many verbs and phrases (Lust haben, versuchen, vergessen, anfangen, aufhören, es ist schwer/wichtig) the second verb goes to the end as zu + infinitive. With separable verbs, zu goes between the prefix and the verb: anzurufen, einzukaufen. Modal verbs (können, müssen, wollen …) never take zu.",
+    rule: "After many verbs and phrases (Lust/Zeit/Angst haben, versuchen, vergessen, anfangen, aufhören, verbieten, es ist schwer/wichtig, es macht Spaß) the second verb goes to the end as zu + infinitive. With separable verbs, zu goes between the prefix and the verb: anzurufen, einzukaufen. Modal verbs (können, müssen, wollen …) never take zu.",
     pattern: "Hauptsatz, … + zu + Infinitiv. · trennbar: an|zu|rufen, ein|zu|kaufen",
     example: { de: "Ich habe keine Lust, heute Abend zu kochen.", en: "I don't feel like cooking tonight." },
     examples: [
@@ -622,7 +622,7 @@ export const GRAMMAR_SATZBAU: GramItem[] = [
     en: "time clauses: before, after, while, since, until",
     name: "bevor, nachdem & Co.",
     cue: "bevor / nachdem / bis … (Verb ans Ende)",
-    rule: "Bevor (before), nachdem (after), während (while), seit/seitdem (since) and bis (until) start subordinate clauses, so the verb goes to the end. After nachdem, use a tense one step further back: Präsens in the main clause goes with Perfekt after nachdem, a past tense with Plusquamperfekt. Seit uses the present tense for something that is still going on.",
+    rule: "Bevor (before), nachdem (after), während (while), seit/seitdem (since) and bis (until) start subordinate clauses, so the verb goes to the end. After nachdem, use a tense one step further back: Präsens in the main clause goes with Perfekt after nachdem, a past tense with Plusquamperfekt. Seit uses the present tense for something that is still going on. Don't mix up nachdem and danach: nachdem starts a subordinate clause (Nachdem ich gegessen habe, gehe ich los), danach is an adverb that takes position 1 with the verb right after it (Ich esse. Danach gehe ich los).",
     pattern: "Hauptsatz, bevor / während / bis / seit + Subjekt + … + Verb. · Nachdem + … + Partizip + hatte/war, Verb + Subjekt + …",
     example: { de: "Ich trinke immer einen Kaffee, bevor ich zur Arbeit gehe.", en: "I always have a coffee before I go to work." },
     examples: [
