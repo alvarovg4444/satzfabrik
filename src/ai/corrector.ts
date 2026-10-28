@@ -4,7 +4,7 @@ import type { Task } from "../engine/tasks";
 import { mentions, sameSentence } from "../engine/text";
 import { coachPrompt, genPrompt, gradePrompt, type CoachInput, type ExplainLang, type GenRequest } from "./prompts";
 import { AIError, type AIProvider } from "./providers";
-import { coerceCoach, coerceGen, coerceGrade, type CoachOutput, type GradeResult, type TargetStatus } from "./schema";
+import { coerceCoach, coerceGen, coerceGrade, coerceMeaning, type CoachOutput, type GradeResult, type MeaningOutput, type TargetStatus } from "./schema";
 
 /** Correct one answer. Throws AIError when no corrector can answer (the UI then offers self-check). */
 export async function gradeAnswer(
@@ -75,6 +75,29 @@ export async function checkRework(
 ): Promise<GradeResult | "match"> {
   if (sameSentence(attempt, first.corrected) || (first.better && sameSentence(attempt, first.better))) return "match";
   return gradeAnswer(provider, task, attempt, catalog, { lang: opts.lang, careful: false, signal: opts.signal, level: opts.level });
+}
+
+/**
+ * A Schnellkarte answered with a different word: asks the AI whether it means the same.
+ * Only called when the typed word is not the card's word (or its article is not the problem).
+ */
+export async function checkMeaning(
+  provider: AIProvider,
+  card: { en: string; de: string },
+  given: string,
+  signal?: AbortSignal,
+): Promise<MeaningOutput> {
+  if (provider.id === "offline") throw new AIError("No corrector configured.", "no_access");
+  const prompt = `A German learner sees the English meaning "${card.en}" on a flashcard and types a German word for it. The card's word is "${card.de}". The learner typed: "${given.trim()}".
+
+Judge only the typed word:
+- "same": a correct German word or expression (spelling right, nouns with a fitting article) that a native speaker would use for this meaning, even if it is not the card's word (a synonym, a regional or more colloquial word).
+- "close": a real German word with a related but clearly different meaning, or the right word with a mistake (spelling, wrong article, wrong form).
+- "wrong": anything else.
+"note": one short English sentence for the learner: for "same", say it works and when the card's word is the more usual choice; for "close", what the difference or the mistake is; for "wrong", what the typed word means, if anything.
+
+Reply with only this JSON: {"verdict":"same","note":"..."}`;
+  return coerceMeaning(await provider.json(prompt, "meaning", { signal }));
 }
 
 const INSPIRATION = [

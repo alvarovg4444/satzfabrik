@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { CoachSchema, GenSchema, GradeSchema, parseJsonLoose } from "./schema";
+import { CoachSchema, GenSchema, GradeSchema, MeaningSchema, parseJsonLoose } from "./schema";
 
 /**
  * Where corrections come from:
@@ -11,11 +11,14 @@ import { CoachSchema, GenSchema, GradeSchema, parseJsonLoose } from "./schema";
  */
 export type ProviderId = "claude-app" | "anthropic" | "openai" | "offline";
 
+/** What a request is for: picks the output schema (and how much effort it is worth). */
+export type AIKind = "grade" | "gen" | "coach" | "meaning";
+
 export interface AIProvider {
   id: ProviderId;
   label: string;
   /** Returns the parsed JSON object the model produced. */
-  json(prompt: string, kind: "grade" | "gen" | "coach", opts: { careful?: boolean; signal?: AbortSignal }): Promise<unknown>;
+  json(prompt: string, kind: AIKind, opts: { careful?: boolean; signal?: AbortSignal }): Promise<unknown>;
 }
 
 export interface AISettings {
@@ -122,7 +125,7 @@ function anthropicProvider(key: string, model: string): AIProvider {
               : {}),
             output_config: {
               effort: (kind === "grade" && opts.careful) || kind === "coach" ? "medium" : "low",
-              format: betaZodOutputFormat(kind === "grade" ? GradeSchema : kind === "coach" ? CoachSchema : GenSchema),
+              format: betaZodOutputFormat(kind === "grade" ? GradeSchema : kind === "coach" ? CoachSchema : kind === "meaning" ? MeaningSchema : GenSchema),
             },
             messages: [{ role: "user", content: prompt }],
           },

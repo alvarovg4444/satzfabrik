@@ -520,13 +520,18 @@ export function applyCard(
   catalog: Catalog,
   now: number,
   id: string,
-  firstTry: boolean,
+  /** true: the card's word; "synonym": another right word (counts, but holds nothing off); false: missed. */
+  firstTry: boolean | "synonym",
 ): { taler: number; streakUp: boolean; achievements: Achievement[] } {
   const day = today(s, now);
   day.cards = (day.cards ?? 0) + 1;
   const card = s.cards[id];
   let taler = 0;
-  if (firstTry) {
+  if (firstTry === "synonym") {
+    day.cardsOk = (day.cardsOk ?? 0) + 1;
+    taler = Math.max(1, Math.round(perSentence(s) * 0.2));
+    addTaler(s, now, taler);
+  } else if (firstTry) {
     day.cardsOk = (day.cardsOk ?? 0) + 1;
     if (card) s.cards[id] = holdOff(card, now);
     taler = Math.max(1, Math.round(perSentence(s) * 0.4));
@@ -549,13 +554,16 @@ export function applyMistakeCard(
   catalog: Catalog,
   now: number,
   key: string,
-  ok: boolean,
-): { taler: number; streakUp: boolean; achievements: Achievement[]; result: "next" | "done" | "again" } {
+  /** "synonym": another right word: no penalty, but the Fehlerwort stays where it is. */
+  ok: boolean | "synonym",
+): { taler: number; streakUp: boolean; achievements: Achievement[]; result: "next" | "done" | "again" | "same" } {
   const day = today(s, now);
   day.cards = (day.cards ?? 0) + 1;
-  const result = reviewMistake(s, key, ok, now);
+  const result = ok === "synonym" ? "same" : reviewMistake(s, key, ok, now);
   let taler = 0;
-  if (ok) {
+  if (ok === "synonym") {
+    day.cardsOk = (day.cardsOk ?? 0) + 1;
+  } else if (ok) {
     day.cardsOk = (day.cardsOk ?? 0) + 1;
     // a fixed mistake is worth a little more than a plain card
     taler = Math.max(1, Math.round(perSentence(s) * (result === "done" ? 1.5 : 0.5)));

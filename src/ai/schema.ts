@@ -71,6 +71,22 @@ export const CoachSchema = z.object({
 
 export type CoachOutput = z.infer<typeof CoachSchema>;
 
+/** A Schnellkarte answered with another word: does it mean the same? */
+export const MeaningSchema = z.object({
+  /** "same": correct German with this meaning; "close": related but not quite; "wrong": not this meaning or not correct German. */
+  verdict: z.enum(["same", "close", "wrong"]),
+  /** One short sentence for the learner, in English. */
+  note: z.string(),
+});
+
+export type MeaningOutput = z.infer<typeof MeaningSchema>;
+
+export function coerceMeaning(raw: unknown): MeaningOutput {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const v = typeof o.verdict === "string" ? o.verdict.trim().toLowerCase() : "";
+  return { verdict: v === "same" || v === "close" ? v : "wrong", note: typeof o.note === "string" ? o.note.trim() : "" };
+}
+
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }

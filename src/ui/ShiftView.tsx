@@ -465,35 +465,6 @@ function ErrorList({ errors }: { errors: GradeResult["errors"] }) {
   );
 }
 
-/** Claude's second check of a repaired sentence: the same explanations as the first time. */
-function ReworkCheck({ check, items, ok }: { check: { grade: GradeResult; attempt: string }; items: Map<string, Item>; ok: boolean }) {
-  const { grade, attempt } = check;
-  const changed = grade.corrected && grade.corrected.trim() !== attempt;
-  return (
-    <div className="stack" style={{ gap: 8 }}>
-      {grade.praise && ok ? <p className="small">{grade.praise}</p> : null}
-      {changed ? (
-        <div className="card plain stack" style={{ gap: 6 }}>
-          <span className="eyebrow">Deine Reparatur, korrigiert</span>
-          <Diff from={attempt} to={grade.corrected} />
-          <div className="sentence">
-            <p style={{ fontWeight: 700 }}>{grade.corrected}</p>
-            <SpeakButton text={grade.corrected} />
-          </div>
-        </div>
-      ) : null}
-      <TargetNotes grade={grade} items={items} />
-      <ErrorList errors={grade.errors} />
-      {grade.tip ? <p className="small muted">Tipp: {grade.tip}</p> : null}
-      {grade.better && ok ? (
-        <p className="small muted">
-          Noch natürlicher: <b>{grade.better}</b>
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function Feedback({
   phase,
   task,
@@ -526,6 +497,13 @@ function Feedback({
   /** Rewriting from memory: the corrections stay hidden until the attempt is checked. */
   const blind = rework !== null && (reworkState === "idle" || reworkState === "checking");
   const bonus = reworkBonus(events.taler);
+  /** The rewrite has been checked: from now on it is the sentence on screen, explained like a first try. */
+  const second = !blind && reworkGrade ? reworkGrade : null;
+  /** The rewrite matched the correction word for word (no second AI reading needed). */
+  const matched = !blind && reworkState === "ok" && !reworkGrade && rework !== null;
+  const shown: GradeResult = second ? second.grade : matched ? { ...grade, corrected: rework!.trim(), errors: [], tip: "" } : grade;
+  const shownAnswer = second ? second.attempt : matched ? rework!.trim() : answer;
+  const shownChanged = !!shown.corrected && shown.corrected.trim() !== shownAnswer.trim() && !(gaveUp && !second);
   const startRework = () => {
     setRework("");
     setReworkGrade(null);
@@ -583,56 +561,11 @@ function Feedback({
         <span className="reward">+{fmt(events.taler)}</span>
       </div>
 
-      {blind ? null : gaveUp ? (
-        <div className="card plain stack" style={{ gap: 8 }}>
-          <span className="eyebrow">So könnte es gehen</span>
-          <div className="sentence">
-            <p style={{ fontWeight: 700 }}>{grade.corrected}</p>
-            <SpeakButton text={grade.corrected} />
-          </div>
-          <p className="small muted">Lies den Satz einmal laut. Die Maschine kommt morgen wieder dran.</p>
-        </div>
-      ) : changed ? (
-        <div className="card plain stack" style={{ gap: 8 }}>
-          <span className="eyebrow">Deine Version, korrigiert</span>
-          <Diff from={answer} to={grade.corrected} />
-          <div className="sentence">
-            <p style={{ fontWeight: 700 }}>{grade.corrected}</p>
-            <SpeakButton text={grade.corrected} />
-          </div>
-        </div>
-      ) : (
-        <div className="sentence card plain">
-          <p style={{ fontWeight: 700 }}>{grade.corrected || answer}</p>
-          <SpeakButton text={grade.corrected || answer} />
-        </div>
-      )}
-
-      {grade.better && !blind ? (
-        <div className="card plain stack" style={{ gap: 6 }}>
-          <span className="eyebrow">So klingt es natürlicher</span>
-          <div className="sentence">
-            <p>{grade.better}</p>
-            <SpeakButton text={grade.better} />
-          </div>
-        </div>
-      ) : null}
-
-      {blind ? null : (
-        <>
-          <Cues task={task} items={items} grade={grade} />
-          <TargetNotes grade={grade} items={items} />
-          <ErrorList errors={grade.errors} />
-          {grade.tip ? <p className="small muted">Tipp: {grade.tip}</p> : null}
-          {task.reference && grade.source !== "exact" && !events.success && !gaveUp ? (
-            <p className="small muted">Musterlösung: {task.reference}</p>
-          ) : null}
-        </>
-      )}
-
       {rework !== null ? (
         <div className="card stack">
-          <span className="eyebrow">Nacharbeit: schreib den ganzen Satz richtig, aus dem Kopf · +{fmt(bonus)} Taler</span>
+          <span className="eyebrow">
+            {second || matched ? "Nacharbeit: dein zweiter Versuch" : `Nacharbeit: schreib den ganzen Satz richtig, aus dem Kopf · +${fmt(bonus)} Taler`}
+          </span>
           {blind ? (
             <Answer value={rework} onChange={setRework} onSubmit={tryRework} autoFocus active={reworkState !== "checking"} />
           ) : null}
@@ -648,7 +581,6 @@ function Feedback({
               {reworkNote}
             </p>
           ) : null}
-          {reworkGrade && reworkState !== "checking" ? <ReworkCheck check={reworkGrade} items={items} ok={reworkState === "ok"} /> : null}
           {reworkState === "idle" ? (
             <div className="row">
               <button type="button" className="btn steel" disabled={!rework?.trim()} onClick={tryRework}>
@@ -667,6 +599,57 @@ function Feedback({
           ) : null}
         </div>
       ) : null}
+
+      {/* the latest attempt, corrected and explained: the first try, or the rewrite once it is checked */}
+      {blind ? null : gaveUp && !second ? (
+        <div className="card plain stack" style={{ gap: 8 }}>
+          <span className="eyebrow">So könnte es gehen</span>
+          <div className="sentence">
+            <p style={{ fontWeight: 700 }}>{grade.corrected}</p>
+            <SpeakButton text={grade.corrected} />
+          </div>
+          <p className="small muted">Lies den Satz einmal laut. Die Maschine kommt morgen wieder dran.</p>
+        </div>
+      ) : shownChanged ? (
+        <div className="card plain stack" style={{ gap: 8 }}>
+          <span className="eyebrow">{second ? "Dein zweiter Versuch, korrigiert" : "Deine Version, korrigiert"}</span>
+          <Diff from={shownAnswer} to={shown.corrected} />
+          <div className="sentence">
+            <p style={{ fontWeight: 700 }}>{shown.corrected}</p>
+            <SpeakButton text={shown.corrected} />
+          </div>
+        </div>
+      ) : (
+        <div className="card plain stack" style={{ gap: 8 }}>
+          {second || matched ? <span className="eyebrow">Dein zweiter Versuch</span> : null}
+          <div className="sentence">
+            <p style={{ fontWeight: 700 }}>{shown.corrected || shownAnswer}</p>
+            <SpeakButton text={shown.corrected || shownAnswer} />
+          </div>
+        </div>
+      )}
+
+      {shown.better && !blind ? (
+        <div className="card plain stack" style={{ gap: 6 }}>
+          <span className="eyebrow">So klingt es natürlicher</span>
+          <div className="sentence">
+            <p>{shown.better}</p>
+            <SpeakButton text={shown.better} />
+          </div>
+        </div>
+      ) : null}
+
+      {blind ? null : (
+        <>
+          <Cues task={task} items={items} grade={shown} />
+          <TargetNotes grade={shown} items={items} />
+          <ErrorList errors={shown.errors} />
+          {shown.tip ? <p className="small muted">Tipp: {shown.tip}</p> : null}
+          {!second && !matched && task.reference && grade.source !== "exact" && !events.success && !gaveUp ? (
+            <p className="small muted">Musterlösung: {task.reference}</p>
+          ) : null}
+        </>
+      )}
 
       <div className="row">
         {changed && rework === null ? (

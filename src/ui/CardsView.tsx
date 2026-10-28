@@ -3,7 +3,8 @@ import { applyCard, applyMistakeCard } from "../game/actions";
 import { fmt } from "../game/economy";
 import { cardHint, checkCard, trainingCards, type CardCheck, type CardEntry } from "../game/training";
 import { MISTAKE_DAYS } from "../game/mistakes";
-import { store, useCatalog } from "../store/store";
+import { checkMeaning } from "../ai/corrector";
+import { store, useCatalog, useMeta } from "../store/store";
 import { showAchievements } from "./Celebrations";
 import { floatCoins, Icon, SpeakButton, toast } from "./common";
 import { sfx } from "./fx";
@@ -23,7 +24,10 @@ function forms(it: CardEntry["item"]): string {
   }
 }
 
-type Result = { check: CardCheck; given: string; first: boolean };
+/** "synonym": another right word for the meaning (the AI checked it). */
+type Verdict = CardCheck | "synonym";
+type Result = { check: Verdict; given: string; first: boolean; note: string };
+const counts = (v: Verdict) => v === "ok" || v === "synonym";
 
 /** Where a Fehlerwort goes after a right answer (its step before this answer). */
 function mistakeNext(m: { step: number }): string {
@@ -45,6 +49,8 @@ export function CardsView({ onBack }: { onBack: () => void }) {
   const seen = useRef(new Set<string>());
   const [typedText, setTyped] = useState("");
   const [result, setResult] = useState<Result | null>(null);
+  const [checking, setChecking] = useState(false);
+  const meta = useMeta();
   const [keys, setKeys] = useState(true);
   const inApp = useInAppKeyboard();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,29 +69,44 @@ export function CardsView({ onBack }: { onBack: () => void }) {
     setTyped("");
   };
 
-  const answer = (given: string) => {
-    if (!entry || !it || result) return;
-    const check = checkCard(it, given);
+  const answer = async (given: string) => {
+    if (!entry || !it || result || checking) return;
+    let check: Verdict = checkCard(it, given);
+    let note = "";
+    // another word for the same thing? the AI decides (when there is one)
+    if (check === "wrong" && given.trim() && meta.providerReady && meta.provider.id !== "offline") {
+      setChecking(true);
+      try {
+        const m = await checkMeaning(meta.provider, { en: it.en, de: it.de }, given);
+        if (m.verdict === "same") check = "synonym";
+        note = m.note;
+      } catch {
+        /* no answer: judge by the card alone */
+      } finally {
+        setChecking(false);
+      }
+    }
     const first = !seen.current.has(entry.key);
     seen.current.add(entry.key);
+    const outcome = check === "ok" ? true : check === "synonym" ? "synonym" : false;
     if (first) {
       const r = store.update((d, c) =>
-        entry.mistake ? applyMistakeCard(d, c, Date.now(), entry.key.slice(2), check === "ok") : applyCard(d, c, Date.now(), it.id, check === "ok"),
+        entry.mistake ? applyMistakeCard(d, c, Date.now(), entry.key.slice(2), outcome) : applyCard(d, c, Date.now(), it.id, outcome),
       );
       if ("result" in r && r.result === "done") toast(<span>Fehlerwort geschafft: <b>{it.de}</b> sitzt jetzt</span>, 4000);
       if (r.taler) floatCoins(r.taler, boxRef.current);
-      setRound((x) => ({ ...x, firstOk: x.firstOk + (check === "ok" ? 1 : 0), earned: x.earned + r.taler }));
+      setRound((x) => ({ ...x, firstOk: x.firstOk + (counts(check) ? 1 : 0), earned: x.earned + r.taler }));
       if (r.streakUp) toast(<span>Die Flamme brennt heute: <b>{store.get().streak.current}</b> {store.get().streak.current === 1 ? "Tag" : "Tage"} in Folge</span>, 5000);
       showAchievements(r.achievements);
     }
-    if (check === "ok") sfx.coin();
+    if (counts(check)) sfx.coin();
     else sfx.bad();
-    setResult({ check, given, first });
+    setResult({ check, given, first, note });
   };
 
   const next = () => {
     if (!entry) return;
-    const missed = result && result.check !== "ok";
+    const missed = result && !counts(result.check);
     // a missed word comes back at the end: the round ends with every word typed right once
     setQueue((q) => (missed ? [...q.slice(1), q[0]] : q.slice(1)));
     setResult(null);
@@ -136,7 +157,7 @@ export function CardsView({ onBack }: { onBack: () => void }) {
         </button>
         <span className="num small muted">noch {left}</span>
       </div>
-      <div ref={boxRef} className={`card stack flashcard ${result ? (result.check === "ok" ? "flash-ok" : "flash-bad") : ""}`}>
+      <div ref={boxRef} className={`card stack flashcard ${result ? (counts(result.check) ? "flash-ok" : "flash-bad") : ""}`}>
         <span className="eyebrow">
           {mistake ? "Dein Fehlerwort · " : ""}
           {cardHint(it)}
@@ -148,7 +169,7 @@ export function CardsView({ onBack }: { onBack: () => void }) {
               className="row"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (typedText.trim()) answer(typedText);
+                if (typedText.trim()) void answer(typedText);
               }}
             >
               <input
@@ -168,13 +189,19 @@ export function CardsView({ onBack }: { onBack: () => void }) {
                 onClick={() => setKeys(true)}
                 placeholder={it.kind === "noun" ? "der/die/das …" : "auf Deutsch"}
               />
-              <button type="submit" className="btn primary" disabled={!typedText.trim()}>
+              <button type="submit" className="btn primary" disabled={!typedText.trim() || checking}>
                 Prüfen
               </button>
             </form>
-            <button type="button" className="btn ghost small" onClick={() => answer("")}>
-              Weiß ich nicht
-            </button>
+            {checking ? (
+              <p className="small muted" role="status">
+                Anderes Wort? Die KI prüft die Bedeutung …
+              </p>
+            ) : (
+              <button type="button" className="btn ghost small" onClick={() => void answer("")}>
+                Weiß ich nicht
+              </button>
+            )}
           </>
         ) : (
           <div className="stack" style={{ gap: 8 }}>
@@ -182,11 +209,19 @@ export function CardsView({ onBack }: { onBack: () => void }) {
               <p className="verdict-line ok">
                 <Icon name="check" size={18} /> Richtig!
               </p>
+            ) : result.check === "synonym" ? (
+              <>
+                <p className="verdict-line ok">
+                  <Icon name="check" size={18} /> „{result.given.trim()}“ stimmt auch!
+                </p>
+                <p className="small">Gesucht war hier aber dieses Wort:</p>
+              </>
             ) : result.given.trim() ? (
               <p className="verdict-line bad">
                 <s>{result.given}</s> {result.check === "article" ? "– fast, nur der Artikel stimmt nicht" : ""}
               </p>
             ) : null}
+            {result.note ? <p className="small muted">{result.note}</p> : null}
             {mistake ? (
               <p className="small">
                 Im Satz hattest du: <s className="was">{mistake.wrong}</s>
@@ -198,7 +233,9 @@ export function CardsView({ onBack }: { onBack: () => void }) {
             </div>
             {forms(it) ? <p className="small">{forms(it)}</p> : null}
             <p className="small muted">{mistake ? `Richtig: ${mistake.sentence}` : it.example.de}</p>
-            {result.check !== "ok" ? (
+            {result.check === "synonym" ? (
+              <p className="small muted">Zählt als richtig. Merk dir trotzdem „{it.de}“, das kommt bald wieder.</p>
+            ) : result.check !== "ok" ? (
               <p className="small muted">
                 Die Karte kommt am Ende der Runde noch einmal{mistake ? ", und das Fehlerwort fängt wieder bei einem Tag an." : "."}
               </p>
@@ -215,7 +252,7 @@ export function CardsView({ onBack }: { onBack: () => void }) {
             field={inputRef}
             value={typedText}
             onChange={setTyped}
-            action={{ label: "Prüfen", onPress: () => typedText.trim() && answer(typedText), disabled: !typedText.trim() }}
+            action={{ label: "Prüfen", onPress: () => void (typedText.trim() && answer(typedText)), disabled: !typedText.trim() || checking }}
             onHide={() => setKeys(false)}
             sentences={false}
           />

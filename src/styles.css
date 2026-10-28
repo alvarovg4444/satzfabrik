@@ -1391,6 +1391,10 @@ textarea.input {
   border-radius: 5px;
   border: 1px solid var(--line);
   color: var(--ink-2);
+  /* "Stufe 0/12" stays in one piece: it moves to the next line as a whole */
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 /* --- stats --------------------------------------------------------------- */

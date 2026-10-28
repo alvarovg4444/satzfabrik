@@ -75,6 +75,8 @@ export function App() {
   const [returnTab, setReturnTab] = useState<Tab>("fabrik");
   const [startReq, setStartReq] = useState<StartRequest>({ n: 0 });
   const [shopTab, setShopTab] = useState<"upgrades" | "plans">("upgrades");
+  /** Tapping Training always leads back to its menu (a fresh one), also from inside an exercise. */
+  const [trainingKey, setTrainingKey] = useState(0);
 
   useEffect(() => {
     document.documentElement.lang = "de";
@@ -91,6 +93,7 @@ export function App() {
   const go = (t: Tab, shop: "upgrades" | "plans" = "upgrades") => {
     if (t === "settings") setReturnTab(tab === "settings" ? "fabrik" : tab);
     if (t === "laden") setShopTab(shop);
+    if (t === "training") setTrainingKey((k) => k + 1);
     setTab(t);
     window.scrollTo({ top: 0 });
   };
@@ -121,7 +124,7 @@ export function App() {
         <div hidden={tab !== "schicht"} className="stack">
           <ShiftView startReq={startReq} goFactory={() => go("fabrik")} goDrill={() => go("training")} />
         </div>
-        {tab === "training" ? <TrainingView /> : null}
+        {tab === "training" ? <TrainingView key={trainingKey} /> : null}
         {tab === "statistik" ? <StatsView onPractice={(id) => startShift([id])} /> : null}
         {tab === "settings" ? <SettingsView onClose={() => go(returnTab)} /> : null}
       </main>

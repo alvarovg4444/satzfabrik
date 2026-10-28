@@ -70,6 +70,18 @@ describe("Schnellkarten", () => {
   });
 });
 
+describe("another right word (the AI said it means the same)", () => {
+  it("counts for the round but holds nothing off and moves no Fehlerwort", () => {
+    const s = newGame(T0);
+    const due = rusty("n.termin");
+    s.cards["n.termin"] = due;
+    const r = applyCard(s, catalog, T0, "n.termin", "synonym");
+    expect(r.taler).toBeGreaterThan(0);
+    expect(s.cards["n.termin"].due).toBe(due.due);
+    expect(s.stats.days[dayKey(T0)].cardsOk).toBe(1);
+  });
+});
+
 describe("Akkord", () => {
   it("practises the forms behind the learner's mistakes, and their missed words", () => {
     const s = newGame(T0);
