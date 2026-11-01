@@ -91,3 +91,39 @@ describe("Fehlerwörter", () => {
     expect(s.mistakesSeeded).toBe(true);
   });
 });
+
+describe("words in [brackets]", () => {
+  it("come from the corrector as lookups and become Schnellkarten due today", async () => {
+    const { coerceGrade } = await import("../src/ai/schema");
+    const { noteLookups } = await import("../src/game/mistakes");
+    const g = coerceGrade(
+      {
+        targets: [],
+        quality: "perfect",
+        corrected: "Ich wohne in einem Haus mit einer Waschmaschine.",
+        errors: [],
+        lookups: [
+          { en: "[house]", word: "das Haus", used: "Haus" },
+          { en: "washing machine", word: "die Waschmaschine", used: "Waschmaschine" },
+          { en: "", word: "x", used: "" },
+        ],
+      },
+      [],
+    );
+    expect(g.lookups).toEqual([
+      { en: "house", word: "das Haus", used: "Haus" },
+      { en: "washing machine", word: "die Waschmaschine", used: "Waschmaschine" },
+    ]);
+    const s = newGame(T0);
+    expect(noteLookups(s, catalog, g, T0)).toBe(2);
+    const round = trainingCards(s, catalog, T0);
+    const looked = round.filter((e) => e.mistake?.lookup);
+    expect(looked.map((e) => e.item.de).sort()).toEqual(["das Haus", "die Waschmaschine"]);
+    expect(looked.find((e) => e.item.de === "das Haus")!.item.en).toBeTruthy();
+  });
+
+  it("no brackets, no lookups", async () => {
+    const { coerceGrade } = await import("../src/ai/schema");
+    expect(coerceGrade({ corrected: "Hallo." }, []).lookups).toBeUndefined();
+  });
+});

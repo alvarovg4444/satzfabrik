@@ -11,7 +11,7 @@ import { noteFocusResult } from "./coach";
 import { comboCap, factoryRate, idleEarnings, levelOf, perSentence, shiftBonus, taskReward, xpMult } from "./economy";
 import { dailyOrders, openChest, type ChestPrize, type Order } from "./orders";
 import { emptyDay, type DayStat, type GameState } from "./state";
-import { noteMistakes, reviewMistake, seedMistakes } from "./mistakes";
+import { noteLookups, noteMistakes, reviewMistake, seedMistakes } from "./mistakes";
 import { KIND_RULE } from "./training";
 import { UPGRADE_BY_ID, upgradeCost, type UpgradeId } from "./upgrades";
 
@@ -412,6 +412,8 @@ export function applyGrade(
   if (s.journal.length > 300) s.journal.length = 300;
   // word mistakes (article, plural, spelling, word choice) become Fehlerwörter for Schnellkarten
   if (!opts.gaveUp) noteMistakes(s, catalog, grade, now);
+  // words written in [brackets] come as Schnellkarten from today
+  if (!opts.gaveUp) noteLookups(s, catalog, grade, now);
 
   // Orders
   const words = wordCount(answer);

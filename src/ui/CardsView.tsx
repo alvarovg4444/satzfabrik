@@ -32,9 +32,10 @@ type Result = { check: Verdict; given: string; first: boolean; note: string; hel
 const counts = (v: Verdict) => v === "ok" || v === "synonym";
 
 /** Where a Fehlerwort goes after a right answer (its step before this answer). */
-function mistakeNext(m: { step: number }): string {
+function mistakeNext(m: { step: number; lookup?: boolean }): string {
   const days = MISTAKE_DAYS[m.step + 1];
-  return days ? `Fehlerwort: wieder in ${days} Tagen.` : "Fehlerwort geschafft, es verlässt den Stapel.";
+  const name = m.lookup ? "Nachgeschlagenes Wort" : "Fehlerwort";
+  return days ? `${name}: wieder in ${days} ${days === 1 ? "Tag" : "Tagen"}.` : `${name} geschafft, es verlässt den Stapel.`;
 }
 
 /**
@@ -177,7 +178,7 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
       </div>
       <div ref={boxRef} className={`card stack flashcard ${result ? (counts(result.check) ? "flash-ok" : "flash-bad") : ""}`}>
         <span className="eyebrow">
-          {mistake ? "Dein Fehlerwort · " : ""}
+          {mistake ? (mistake.lookup ? "Nachgeschlagen · " : "Dein Fehlerwort · ") : ""}
           {cardHint(it)}
         </span>
         {entry.hold === "hold" ? (
@@ -249,7 +250,7 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
               </p>
             ) : null}
             {result.note ? <p className="small muted">{result.note}</p> : null}
-            {mistake ? (
+            {mistake && !mistake.lookup ? (
               <p className="small">
                 Im Satz hattest du: <s className="was">{mistake.wrong}</s>
               </p>

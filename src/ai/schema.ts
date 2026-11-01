@@ -31,6 +31,17 @@ export const GradeSchema = z.object({
       en: z.string(),
     }),
   ),
+  /** Words the learner wrote in [brackets] because they did not know them in German. */
+  lookups: z.array(
+    z.object({
+      /** The text in the brackets, as written. */
+      en: z.string(),
+      /** German dictionary form, nouns with their article: "das Haus". */
+      word: z.string(),
+      /** The form used in "corrected". */
+      used: z.string(),
+    }),
+  ),
   praise: z.string(),
   tip: z.string(),
   /** CEFR level this answer shows (complexity and accuracy together): feeds the level engine. */
@@ -39,7 +50,9 @@ export const GradeSchema = z.object({
 
 export type Cefr = z.infer<typeof GradeSchema>["level"];
 /** The level is only there when an AI read the sentence (not for exact matches or self-checks). */
-export type GradeOutput = Omit<z.infer<typeof GradeSchema>, "level"> & { level?: Cefr };
+export type Lookup = z.infer<typeof GradeSchema>["lookups"][number];
+/** lookups only come from the AI (an answer with [brackets]). */
+export type GradeOutput = Omit<z.infer<typeof GradeSchema>, "level" | "lookups"> & { level?: Cefr; lookups?: Lookup[] };
 
 export type GradeSource = "ai" | "exact" | "self";
 
@@ -130,6 +143,10 @@ export function coerceGrade(
       en: str(e.en),
     }))
     .filter((e) => e.wrong || e.right || e.explain);
+  const lookups = (Array.isArray(o.lookups) ? o.lookups : [])
+    .filter((l): l is Record<string, unknown> => !!l && typeof l === "object")
+    .map((l) => ({ en: str(l.en).replace(/^\[|\]$/g, ""), word: str(l.word), used: str(l.used) }))
+    .filter((l) => l.en && l.word);
   const levelRaw = str(o.level).toUpperCase();
   const level = (["A1", "A2", "B1", "B2", "C1"] as const).find((l) => l === levelRaw);
   return {
@@ -140,6 +157,7 @@ export function coerceGrade(
     errors,
     praise: str(o.praise),
     tip: str(o.tip),
+    ...(lookups.length ? { lookups } : {}),
     ...(level ? { level } : {}),
   };
 }

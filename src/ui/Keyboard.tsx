@@ -12,7 +12,7 @@ import { deleteBack, insertText, sentenceStart, upper, type Edit } from "./keys"
  */
 
 const LETTERS = ["qwertzuiopü", "asdfghjklöä", "yxcvbnmß"];
-const SYMBOLS = ["1234567890", "-/:;()€&@%", "?!'\"„“+="];
+const SYMBOLS = ["1234567890", "-/:;()€&@%", "?!'\"„“[]"];
 
 type Shift = "off" | "once" | "lock";
 

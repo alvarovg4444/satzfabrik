@@ -352,7 +352,7 @@ function Answer({
         autoCorrect={ownKeys ? "off" : undefined}
         autoComplete="off"
         inputMode={ownKeys ? "none" : undefined}
-        placeholder="Schreib hier auf Deutsch …"
+        placeholder="Schreib hier auf Deutsch … Wort fehlt? [auf Englisch in Klammern]"
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}
@@ -462,6 +462,27 @@ function ErrorList({ errors }: { errors: GradeResult["errors"] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Words written in [brackets]: what they are in German; they are Schnellkarten now. */
+function Lookups({ lookups }: { lookups?: GradeResult["lookups"] }) {
+  if (!lookups?.length) return null;
+  return (
+    <div className="card plain stack" style={{ gap: 6 }}>
+      <span className="eyebrow">Nachgeschlagen · jetzt in deinen Schnellkarten</span>
+      <ul className="errs" aria-label="Nachgeschlagen">
+        {lookups.map((l, i) => (
+          <li key={i}>
+            <span className="fix">
+              [{l.en}] → <b>{l.word}</b>
+            </span>
+            {l.used && l.used !== l.word.replace(/^(der|die|das) /, "") ? <span className="small muted">im Satz: {l.used}</span> : null}
+            <SpeakButton text={l.word} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -644,6 +665,7 @@ function Feedback({
           <Cues task={task} items={items} grade={shown} />
           <TargetNotes grade={shown} items={items} />
           <ErrorList errors={shown.errors} />
+          <Lookups lookups={grade.lookups} />
           {shown.tip ? <p className="small muted">Tipp: {shown.tip}</p> : null}
           {!second && !matched && task.reference && grade.source !== "exact" && !events.success && !gaveUp ? (
             <p className="small muted">Musterlösung: {task.reference}</p>

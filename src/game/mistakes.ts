@@ -22,6 +22,8 @@ export interface MistakeCard {
   wrong: string;
   /** The corrected sentence it was in. */
   sentence: string;
+  /** A word the learner wrote in [brackets] in a sentence because they did not know it. */
+  lookup?: boolean;
   /** Right answers so far (0–4); the next one after `MISTAKE_DAYS[step]` days. */
   step: number;
   due: number;
@@ -124,6 +126,22 @@ export function noteMistakes(s: GameState, catalog: Catalog, grade: Pick<GradeRe
     const en = it ? it.en : e.en?.trim();
     if (!word || !en) continue;
     put(s, { word, en, itemId: it?.id, type: e.type, wrong: e.wrong, sentence: grade.corrected, step: 0, due: now + MISTAKE_DAYS[0] * DAY, added: now });
+    n++;
+  }
+  return n;
+}
+
+/**
+ * Words written in [brackets] become Schnellkarten right away (due today), then follow the
+ * same 1-3-7-14-30-day rhythm as Fehlerwörter.
+ */
+export function noteLookups(s: GameState, catalog: Catalog, grade: Pick<GradeResult, "lookups" | "corrected">, now: number): number {
+  let n = 0;
+  for (const l of grade.lookups ?? []) {
+    const it = findItem(catalog, { type: "word_choice", right: l.used, word: l.word });
+    const word = it ? it.de : l.word.trim();
+    if (!word) continue;
+    put(s, { word, en: l.en.trim(), itemId: it?.id, type: "word_choice", lookup: true, wrong: `[${l.en.trim()}]`, sentence: grade.corrected, step: 0, due: now, added: now });
     n++;
   }
   return n;
