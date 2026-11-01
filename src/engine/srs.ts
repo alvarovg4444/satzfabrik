@@ -165,10 +165,23 @@ export const MAX_HOLDS = 2;
  * a machine only climbs by being used in a sentence.
  */
 export function holdOff(card: CardState, now: number): CardState {
-  if (card.st === State.New || card.ok === 0 || (card.held ?? 0) >= MAX_HOLDS) return card;
-  if (card.due > now + DAY) return card;
-  const days = Math.min(4, Math.max(1, Math.round(card.sched / 3)));
-  return { ...card, due: now + days * DAY, held: (card.held ?? 0) + 1 };
+  if (holdStatus(card, now) !== "hold") return card;
+  return { ...card, due: now + holdDays(card) * DAY, held: (card.held ?? 0) + 1 };
+}
+
+/** Days a right Schnellkarte keeps this machine from rusting. */
+export function holdDays(card: CardState): number {
+  return Math.min(4, Math.max(1, Math.round(card.sched / 3)));
+}
+
+/**
+ * What a right Schnellkarte would do for this machine now:
+ * "hold" keeps the rust off for holdDays; "used" means the holds are used up and only a
+ * sentence helps; "none" means it is not rusting (or not due within a day), nothing to hold.
+ */
+export function holdStatus(card: CardState, now: number): "hold" | "used" | "none" {
+  if (card.st === State.New || card.ok === 0 || card.due > now + DAY) return "none";
+  return (card.held ?? 0) >= MAX_HOLDS ? "used" : "hold";
 }
 
 /** A word not recalled on a flashcard: due now, so the next shift brings it back. */

@@ -13,14 +13,14 @@ type Mode = "menu" | "cards" | "akkord";
  * Schnellkarten when the word does not come to mind, Akkord when the word comes but its
  * ending is wrong. The menu suggests the one that fits today.
  */
-export function TrainingView() {
+export function TrainingView({ onMaintenance }: { onMaintenance?: () => void } = {}) {
   const s = useGame();
   const catalog = useCatalog();
   const [mode, setMode] = useState<Mode>("menu");
   const waiting = useMemo(() => cardsWaiting(s, catalog, Date.now()), [s, catalog]);
   const focus = useMemo(() => drillFocus(s), [s]);
 
-  if (mode === "cards") return <CardsView onBack={() => setMode("menu")} />;
+  if (mode === "cards") return <CardsView onBack={() => setMode("menu")} onMaintenance={onMaintenance} />;
   if (mode === "akkord") return <DrillView onBack={() => setMode("menu")} />;
 
   // rusting words first; otherwise the forms behind recent mistakes

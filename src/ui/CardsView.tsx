@@ -3,6 +3,7 @@ import { applyCard, applyMistakeCard } from "../game/actions";
 import { fmt } from "../game/economy";
 import { cardHint, checkCard, trainingCards, type CardCheck, type CardEntry } from "../game/training";
 import { MISTAKE_DAYS } from "../game/mistakes";
+import { holdDays, isDue } from "../engine/srs";
 import { checkMeaning } from "../ai/corrector";
 import { store, useCatalog, useMeta } from "../store/store";
 import { showAchievements } from "./Celebrations";
@@ -26,7 +27,8 @@ function forms(it: CardEntry["item"]): string {
 
 /** "synonym": another right word for the meaning (the AI checked it). */
 type Verdict = CardCheck | "synonym";
-type Result = { check: Verdict; given: string; first: boolean; note: string };
+/** held: days the rust stays off after this answer (0: it does not). */
+type Result = { check: Verdict; given: string; first: boolean; note: string; held: number };
 const counts = (v: Verdict) => v === "ok" || v === "synonym";
 
 /** Where a Fehlerwort goes after a right answer (its step before this answer). */
@@ -37,14 +39,15 @@ function mistakeNext(m: { step: number }): string {
 
 /**
  * Schnellkarten: "Welches Wort?" The English meaning, and the learner types the German
- * word with its article. Due machines first, then today's new words. A word known on
- * the first try keeps its machine from rusting for a few days; a missed one comes back
- * at the end of the round and in the next shift.
+ * word with its article. All rusting machines and due Fehlerwörter, then today's new words.
+ * A word known on the first try keeps its machine from rusting for a few days (twice in a
+ * row; then only a sentence helps, and the card says so); a missed one comes back at the
+ * end of the round and in the next shift.
  */
-export function CardsView({ onBack }: { onBack: () => void }) {
+export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMaintenance?: () => void }) {
   const catalog = useCatalog();
   const [queue, setQueue] = useState<CardEntry[]>(() => trainingCards(store.get(), catalog, Date.now()));
-  const [round, setRound] = useState(() => ({ size: queue.length, firstOk: 0, earned: 0 }));
+  const [round, setRound] = useState(() => ({ size: queue.length, firstOk: 0, earned: 0, held: 0 }));
   /** Words already answered once this round (re-asks earn nothing and change nothing). */
   const seen = useRef(new Set<string>());
   const [typedText, setTyped] = useState("");
@@ -64,7 +67,7 @@ export function CardsView({ onBack }: { onBack: () => void }) {
     const q = trainingCards(store.get(), catalog, Date.now());
     seen.current = new Set();
     setQueue(q);
-    setRound({ size: q.length, firstOk: 0, earned: 0 });
+    setRound({ size: q.length, firstOk: 0, earned: 0, held: 0 });
     setResult(null);
     setTyped("");
   };
@@ -89,19 +92,21 @@ export function CardsView({ onBack }: { onBack: () => void }) {
     const first = !seen.current.has(entry.key);
     seen.current.add(entry.key);
     const outcome = check === "ok" ? true : check === "synonym" ? "synonym" : false;
+    const before = store.get().cards[it.id];
+    const held = first && check === "ok" && entry.hold === "hold" && before ? holdDays(before) : 0;
     if (first) {
       const r = store.update((d, c) =>
         entry.mistake ? applyMistakeCard(d, c, Date.now(), entry.key.slice(2), outcome) : applyCard(d, c, Date.now(), it.id, outcome),
       );
       if ("result" in r && r.result === "done") toast(<span>Fehlerwort geschafft: <b>{it.de}</b> sitzt jetzt</span>, 4000);
       if (r.taler) floatCoins(r.taler, boxRef.current);
-      setRound((x) => ({ ...x, firstOk: x.firstOk + (counts(check) ? 1 : 0), earned: x.earned + r.taler }));
+      setRound((x) => ({ ...x, firstOk: x.firstOk + (counts(check) ? 1 : 0), earned: x.earned + r.taler, held: x.held + (held ? 1 : 0) }));
       if (r.streakUp) toast(<span>Die Flamme brennt heute: <b>{store.get().streak.current}</b> {store.get().streak.current === 1 ? "Tag" : "Tage"} in Folge</span>, 5000);
       showAchievements(r.achievements);
     }
     if (counts(check)) sfx.coin();
     else sfx.bad();
-    setResult({ check, given, first, note });
+    setResult({ check, given, first, note, held });
   };
 
   const next = () => {
@@ -116,6 +121,7 @@ export function CardsView({ onBack }: { onBack: () => void }) {
 
   if (!entry || !it) {
     const done = round.size > 0;
+    const rusting = Object.values(store.get().cards).filter((c) => isDue(c, Date.now())).length;
     return (
       <section className="card stack">
         <span className="eyebrow">Schnellkarten · Welches Wort?</span>
@@ -125,8 +131,15 @@ export function CardsView({ onBack }: { onBack: () => void }) {
               {round.firstOk} von {round.size} auf Anhieb
             </h1>
             <p className="muted">
-              +{fmt(round.earned)} Taler. Gewusste Wörter rosten ein paar Tage nicht, die anderen kommen in der nächsten Schicht wieder.
+              +{fmt(round.earned)} Taler.
+              {round.held ? ` ${round.held} ${round.held === 1 ? "Maschine rostet" : "Maschinen rosten"} jetzt ein paar Tage nicht.` : ""}
             </p>
+            {rusting ? (
+              <p className="small">
+                {rusting} {rusting === 1 ? "Maschine rostet" : "Maschinen rosten"} weiter. Karten halten den Rost nur auf (höchstens zweimal hintereinander);
+                ganz repariert wird eine Maschine nur durch einen Satz. Grammatik-Maschinen gibt es nicht als Karte.
+              </p>
+            ) : null}
           </>
         ) : (
           <>
@@ -135,6 +148,11 @@ export function CardsView({ onBack }: { onBack: () => void }) {
           </>
         )}
         <div className="row">
+          {done && rusting && onMaintenance ? (
+            <button type="button" className="btn primary" onClick={onMaintenance}>
+              Wartungsschicht ({rusting})
+            </button>
+          ) : null}
           {waiting ? (
             <button type="button" className="btn primary" onClick={restart}>
               Noch {waiting} {waiting === 1 ? "Karte" : "Karten"}
@@ -162,6 +180,15 @@ export function CardsView({ onBack }: { onBack: () => void }) {
           {mistake ? "Dein Fehlerwort · " : ""}
           {cardHint(it)}
         </span>
+        {entry.hold === "hold" ? (
+          <span className="small" style={{ color: "var(--rust)" }}>
+            Rostet · richtig auf Anhieb hält den Rost ein paar Tage auf
+          </span>
+        ) : entry.hold === "used" ? (
+          <span className="small" style={{ color: "var(--rust)" }}>
+            Rostet · schon zweimal per Karte aufgehalten: nur ein Satz repariert sie jetzt
+          </span>
+        ) : null}
         <div className="drill-prompt">{it.en}</div>
         {!result ? (
           <>
@@ -234,13 +261,21 @@ export function CardsView({ onBack }: { onBack: () => void }) {
             {forms(it) ? <p className="small">{forms(it)}</p> : null}
             <p className="small muted">{mistake ? `Richtig: ${mistake.sentence}` : it.example.de}</p>
             {result.check === "synonym" ? (
-              <p className="small muted">Zählt als richtig. Merk dir trotzdem „{it.de}“, das kommt bald wieder.</p>
+              <p className="small muted">
+                Zählt als richtig{entry.hold ? ", hält den Rost aber nicht auf" : ""}. Merk dir trotzdem „{it.de}“, das kommt bald wieder.
+              </p>
             ) : result.check !== "ok" ? (
               <p className="small muted">
                 Die Karte kommt am Ende der Runde noch einmal{mistake ? ", und das Fehlerwort fängt wieder bei einem Tag an." : "."}
               </p>
             ) : mistake && result.first ? (
               <p className="small muted">{mistakeNext(mistake)}</p>
+            ) : result.held ? (
+              <p className="small muted">
+                Rost {result.held === 1 ? "einen Tag" : `${result.held} Tage`} aufgehalten. Ganz repariert wird die Maschine durch einen Satz damit.
+              </p>
+            ) : entry.hold === "used" && result.first ? (
+              <p className="small muted">Gut gewusst, aber die Maschine rostet weiter: Schreib einen Satz damit in einer Wartungsschicht.</p>
             ) : null}
             <button type="button" className="btn primary block" autoFocus onClick={next}>
               Weiter <Icon name="arrow" size={18} />

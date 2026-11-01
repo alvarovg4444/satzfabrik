@@ -751,7 +751,7 @@ export function CoachNote({ thinking = false, compact = false, onPractice }: { t
   );
 }
 
-function StartScreen({ onStart }: { onStart: (extra: boolean) => void }) {
+function StartScreen({ onStart }: { onStart: (extra: boolean, focus?: string[], maintenance?: boolean) => void }) {
   const s = useGame();
   const now = Date.now();
   const cards = Object.values(s.cards);
@@ -785,7 +785,19 @@ function StartScreen({ onStart }: { onStart: (extra: boolean) => void }) {
           <span className="l">Schwachstellen</span>
         </div>
       </div>
-      {due + fresh > 0 ? (
+      {due > 0 ? (
+        <>
+          <button type="button" className="btn primary block" onClick={() => onStart(false, undefined, true)}>
+            <Icon name="play" size={18} /> Wartungsschicht ({due} rosten)
+          </button>
+          <p className="small muted">Nur deine rostenden Maschinen, keine neuen Wörter. Jeder Satz damit entrostet die Maschine.</p>
+          {fresh > 0 && newLeft > 0 ? (
+            <button type="button" className="btn block" onClick={() => onStart(false)}>
+              Normale Schicht (rostende zuerst, dann neue Maschinen)
+            </button>
+          ) : null}
+        </>
+      ) : fresh > 0 ? (
         <button type="button" className="btn primary block" onClick={() => onStart(false)}>
           <Icon name="play" size={18} /> Schicht starten
         </button>
@@ -811,6 +823,8 @@ export interface StartRequest {
   n: number;
   /** Practise exactly these items instead of the scheduled mix. */
   focus?: string[];
+  /** Wartungsschicht: only the rusting machines. */
+  maintenance?: boolean;
 }
 
 export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartRequest; goFactory: () => void; goDrill: () => void }) {
@@ -855,7 +869,7 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
       const now = Date.now();
       const cards = Object.values(store.get().cards);
       const work = cards.some((c) => isDue(c, now) || stageOf(c) === 0);
-      start(!work, startReq.focus);
+      start(!work, startReq.focus, startReq.maintenance);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startReq.n]);
@@ -876,14 +890,15 @@ export function ShiftView({ startReq, goFactory, goDrill }: { startReq: StartReq
     return out;
   };
 
-  const start = (extra: boolean, focus?: string[]) => {
+  const start = (extra: boolean, focus?: string[], maintenance = false) => {
     ctlRef.current?.abort();
     const now = Date.now();
-    // Top up today's delivery of blueprints before building the shift.
-    const delivered = store.update((d, c) => deliver(d, c, now));
+    maintenance = maintenance && !focus?.length && Object.values(store.get().cards).some((c) => isDue(c, now));
+    // Top up today's delivery of blueprints before building the shift (not for a Wartungsschicht).
+    const delivered = maintenance ? [] : store.update((d, c) => deliver(d, c, now));
     if (delivered.length) toast(`Lieferung: ${delivered.length} neue Baupläne, passend zu deinem Niveau.`, 4000);
     const st = store.get();
-    const build = (asExtra: boolean) => planShift(st, catalog, now, asExtra);
+    const build = (asExtra: boolean) => planShift(st, catalog, now, asExtra, maintenance);
     let list = focus?.length ? focusTasks(focus, now) : build(extra);
     if (!list.length && !focus?.length && !extra) {
       // Nothing due and today's new machines are built: offer free practice instead.

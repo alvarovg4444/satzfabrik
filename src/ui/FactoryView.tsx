@@ -177,7 +177,8 @@ export function FactoryView({
   onShop,
   onPractice,
 }: {
-  onStartShift: () => void;
+  /** maintenance: a Wartungsschicht, only the rusting machines. */
+  onStartShift: (maintenance?: boolean) => void;
   onShop: (tab?: "upgrades" | "plans") => void;
   onPractice: (id: string) => void;
 }) {
@@ -232,10 +233,15 @@ export function FactoryView({
           </div>
         </div>
         <div className="row">
-          <button type="button" className="btn primary" onClick={onStartShift}>
+          <button type="button" className="btn primary" onClick={() => onStartShift(rusty > 0)}>
             <Icon name="play" size={18} />
             {rusty ? `Wartungsschicht (${rusty} rosten)` : blueprints ? "Schicht: neue Maschinen bauen" : "Schicht starten"}
           </button>
+          {rusty && blueprints ? (
+            <button type="button" className="btn" onClick={() => onStartShift(false)} style={{ background: "transparent", color: "inherit" }}>
+              Neue bauen
+            </button>
+          ) : null}
           <button type="button" className="btn" onClick={() => onShop()} style={{ background: "transparent", color: "inherit" }}>
             <Icon name="shop" size={18} /> Laden
           </button>

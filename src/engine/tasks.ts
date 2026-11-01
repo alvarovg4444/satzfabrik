@@ -228,6 +228,8 @@ export interface ShiftInput {
   refresh?: Item[];
   /** Grammar the coach put in focus: practised extra, early in the shift. */
   focus?: string[];
+  /** Wartungsschicht: only the rusting machines, no blueprints, focus, weak spot or refreshers. */
+  maintenance?: boolean;
   /** Varies the built-in situations and sentences between games and shifts (see taskForItem). */
   salt?: string;
 }
@@ -246,20 +248,26 @@ export function refreshTask(it: Item, now: number, catalog: Catalog, salt = ""):
   return { ...t, key: `${it.id}:refresh`, cues: [cueFor(it, 3)], minWords: 4 };
 }
 
+/** At most this many rusting machines in one shift; the rest wait for the next one. */
+export const MAX_DUE_PER_SHIFT = 25;
+
 /**
- * Compose a shift: new blueprints first (intro + first sentence), then rusty
- * machines, one weak-spot task, and combos of mature items. Interleaved so
- * halls and task types alternate.
+ * Compose a shift. Rusting machines come first and all of them get in (up to
+ * MAX_DUE_PER_SHIFT), even if the shift grows past its size for that. Then the coach's
+ * focus, one weak spot, extra practice and A1 refreshers. New blueprints (intro + first
+ * sentence) are interleaved so the shift never feels like a wall.
+ * A maintenance shift (Wartungsschicht) is only the rusting machines.
  */
 export function buildShift(input: ShiftInput): Task[] {
   const { cards, catalog, now, size } = input;
   const salt = input.salt ?? "";
-  const maxNew = input.maxNew ?? 3;
+  const maint = !!input.maintenance;
+  const maxNew = maint ? 0 : (input.maxNew ?? 3);
   const owned = Object.values(cards).filter((c) => catalog.get(c.id));
   const used = new Set<string>();
   const out: Task[] = [];
 
-  const focus = new Set(input.focus ?? []);
+  const focus = new Set(maint ? [] : (input.focus ?? []));
   // A focus topic the learner has no machine for yet comes as a blueprint, even past today's limit.
   const blueprints = owned
     .filter((c) => stageOf(c) === 0)
@@ -273,9 +281,34 @@ export function buildShift(input: ShiftInput): Task[] {
     fresh.push(taskForItem(it, c, catalog, now, "new", salt));
   }
 
+  // Rustiest first. Every due machine gets in (up to the cap), whatever the shift size.
   const due = owned
     .filter((c) => !used.has(c.id) && isDue(c, now))
-    .sort((a, b) => rustOf(b, now) - rustOf(a, now) || a.due - b.due);
+    .sort((a, b) => rustOf(b, now) - rustOf(a, now) || a.due - b.due)
+    .slice(0, MAX_DUE_PER_SHIFT);
+  const singles: Task[] = [];
+  const mature: CardState[] = [];
+  for (const c of due) {
+    used.add(c.id);
+    if (stageOf(c) >= 3) mature.push(c);
+    else singles.push(taskForItem(catalog.get(c.id)!, c, catalog, now, "due", salt));
+  }
+  const combos: Task[] = [];
+  // Mature machines are maintained in combos: one structure + one or two words.
+  const gram = mature.filter((c) => catalog.get(c.id)!.kind === "gram");
+  const vocab = mature.filter((c) => catalog.get(c.id)!.kind !== "gram");
+  while (gram.length + vocab.length > 0) {
+    const group: CardState[] = [];
+    if (gram.length) group.push(gram.shift()!);
+    while (group.length < 3 && vocab.length) group.push(vocab.shift()!);
+    if (group.length < 3 && gram.length) group.push(gram.shift()!);
+    if (group.length === 1) {
+      combos.push(taskForItem(catalog.get(group[0].id)!, group[0], catalog, now, "due", salt));
+    } else {
+      combos.push(comboTask(group.map((c) => catalog.get(c.id)!), group, catalog, now, salt));
+    }
+  }
+  const rust = interleave(singles, combos);
 
   const focused: Task[] = [];
   for (const id of focus) {
@@ -287,69 +320,44 @@ export function buildShift(input: ShiftInput): Task[] {
   }
 
   let weak: Task | null = null;
-  for (const id of input.weakRules) {
-    const c = cards[id];
-    const it = catalog.get(id);
-    if (c && it && stageOf(c) > 0 && !used.has(id)) {
-      used.add(id);
-      weak = taskForItem(it, c, catalog, now, "weak", salt);
-      break;
-    }
-  }
-
-  const budget = Math.max(0, size - fresh.length / 2 - (weak ? 1 : 0) - focused.length);
-  const singles: Task[] = [];
-  const mature: CardState[] = [];
-  // Rustiest first. Mature items share combo tasks, so they cost less than a slot each.
-  for (const c of due) {
-    if (used.has(c.id)) continue;
-    if (singles.length + Math.ceil(mature.length / 2.5) >= budget) break;
-    if (stageOf(c) >= 3) mature.push(c);
-    else {
-      used.add(c.id);
-      singles.push(taskForItem(catalog.get(c.id)!, c, catalog, now, "due", salt));
-    }
-  }
-  const combos: Task[] = [];
-  // Mature machines are maintained in combos: one structure + one or two words.
-  const gram = mature.filter((c) => catalog.get(c.id)!.kind === "gram");
-  const vocab = mature.filter((c) => catalog.get(c.id)!.kind !== "gram");
-  while (singles.length + combos.length < budget && gram.length + vocab.length > 0) {
-    const group: CardState[] = [];
-    if (gram.length) group.push(gram.shift()!);
-    while (group.length < 3 && vocab.length) group.push(vocab.shift()!);
-    if (group.length < 3 && gram.length) group.push(gram.shift()!);
-    group.forEach((c) => used.add(c.id));
-    if (group.length === 1) {
-      combos.push(taskForItem(catalog.get(group[0].id)!, group[0], catalog, now, "due", salt));
-    } else {
-      combos.push(comboTask(group.map((c) => catalog.get(c.id)!), group, catalog, now, salt));
+  if (!maint) {
+    for (const id of input.weakRules) {
+      const c = cards[id];
+      const it = catalog.get(id);
+      if (c && it && stageOf(c) > 0 && !used.has(id)) {
+        used.add(id);
+        weak = taskForItem(it, c, catalog, now, "weak", salt);
+        break;
+      }
     }
   }
 
   const practice: Task[] = [];
-  if (input.extra) {
+  if (input.extra && !maint) {
+    const budget = size - fresh.length / 2 - rust.length - focused.length - (weak ? 1 : 0);
     const rest = owned
       .filter((c) => !used.has(c.id) && stageOf(c) > 0)
       .sort((a, b) => a.due - b.due);
     for (const c of rest) {
-      if (singles.length + combos.length + practice.length >= budget) break;
+      if (practice.length >= budget) break;
       used.add(c.id);
       practice.push(taskForItem(catalog.get(c.id)!, c, catalog, now, "practice", salt));
     }
   }
 
-  // Interleave: alternate new blocks with maintenance so the shift never feels like a wall.
-  const maintenance = interleave([...singles, ...practice], combos);
-  (input.refresh ?? [])
-    .filter((it) => !used.has(it.id) && !cards[it.id])
-    .forEach((it, i) => maintenance.splice(Math.min(maintenance.length, 2 + i * 4), 0, refreshTask(it, now, catalog, salt)));
+  // After the rust: the coach's topics, the weak spot and practice, then the A1 refreshers.
+  const others: Task[] = [...focused];
   const r = rng(hash(dayKey(now) + owned.length));
+  if (weak) others.splice(Math.min(others.length, Math.floor(r() * 2)), 0, weak);
+  others.push(...practice);
+  if (!maint) {
+    (input.refresh ?? [])
+      .filter((it) => !used.has(it.id) && !cards[it.id])
+      .forEach((it, i) => others.splice(Math.min(others.length, 1 + i * 3), 0, refreshTask(it, now, catalog, salt)));
+  }
+  const maintenance = [...rust, ...others];
   let fi = 0;
   let mi = 0;
-  if (weak) maintenance.splice(Math.min(maintenance.length, 1 + Math.floor(r() * 3)), 0, weak);
-  // the coach's topics come early, while attention is fresh
-  focused.forEach((t, i) => maintenance.splice(Math.min(maintenance.length, i * 3), 0, t));
   while (fi < fresh.length || mi < maintenance.length) {
     if (mi < maintenance.length) out.push(maintenance[mi++]);
     if (fi < fresh.length) {

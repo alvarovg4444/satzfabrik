@@ -1,9 +1,9 @@
 import type { Catalog } from "../content/catalog";
 import type { ErrorType, Item } from "../content/types";
 import type { DrillKind } from "../engine/drills";
-import { isDue, stageOf } from "../engine/srs";
+import { holdStatus, isDue, stageOf } from "../engine/srs";
 import { dayKey, norm } from "../engine/text";
-import { dueMistakes, mistakeItem, MISTAKES_PER_ROUND, type MistakeCard } from "./mistakes";
+import { dueMistakes, mistakeItem, type MistakeCard } from "./mistakes";
 import type { GameState } from "./state";
 
 /*
@@ -17,10 +17,13 @@ import type { GameState } from "./state";
 // --- Schnellkarten ---------------------------------------------------------------
 
 const CARD_KINDS = new Set<Item["kind"]>(["noun", "verb", "adj", "adv", "word"]);
-/** Cards per round: about three minutes. */
+/** Cards per round when little is due: about three minutes. Rusting words and due Fehlerwörter all come, even past it. */
 export const CARDS_PER_ROUND = 15;
 
-/** Words to recall now: rusting machines first (longest overdue first), then today's new words. */
+/**
+ * Words to recall now: every rusting machine (longest overdue first, also those whose
+ * holds are used up), then today's new words up to max.
+ */
 export function cardQueue(s: GameState, catalog: Catalog, now: number, max = CARDS_PER_ROUND): Item[] {
   const today = dayKey(now);
   const due: { it: Item; due: number }[] = [];
@@ -33,7 +36,7 @@ export function cardQueue(s: GameState, catalog: Catalog, now: number, max = CAR
   }
   due.sort((a, b) => a.due - b.due);
   fresh.sort((a, b) => b.t - a.t);
-  return [...due.map((x) => x.it), ...fresh.map((x) => x.it)].slice(0, max);
+  return [...due.map((x) => x.it), ...fresh.slice(0, Math.max(0, max - due.length)).map((x) => x.it)];
 }
 
 /** One Schnellkarte: a course word, or a Fehlerwort from the learner's own sentences. */
@@ -41,21 +44,24 @@ export interface CardEntry {
   key: string;
   item: Item;
   mistake?: MistakeCard;
+  /** For a rusting machine: whether a right answer holds the rust off ("hold") or not any more ("used"). */
+  hold?: "hold" | "used";
 }
 
 /**
- * A round: due Fehlerwörter (up to MISTAKES_PER_ROUND) mixed in between the rusting and
- * new words, every second card, so a round stays about three minutes.
+ * A round: all due Fehlerwörter mixed in between all the rusting words, every second card;
+ * today's new words fill the round up to max.
  */
 export function trainingCards(s: GameState, catalog: Catalog, now: number, max = CARDS_PER_ROUND): CardEntry[] {
-  const mistakes = dueMistakes(s, now)
-    .slice(0, MISTAKES_PER_ROUND)
-    .map(({ key, card }): CardEntry => ({ key: `m:${key}`, item: mistakeItem(catalog, card), mistake: card }));
+  const mistakes = dueMistakes(s, now).map(({ key, card }): CardEntry => ({ key: `m:${key}`, item: mistakeItem(catalog, card), mistake: card }));
   const taken = new Set(mistakes.map((m) => m.item.id));
-  const words = cardQueue(s, catalog, now, max)
+  const words = cardQueue(s, catalog, now, Math.max(0, max - mistakes.length))
     .filter((it) => !taken.has(it.id))
-    .slice(0, Math.max(0, max - mistakes.length))
-    .map((it): CardEntry => ({ key: it.id, item: it }));
+    .map((it): CardEntry => {
+      const c = s.cards[it.id];
+      const h = c && isDue(c, now) ? holdStatus(c, now) : "none";
+      return h === "none" ? { key: it.id, item: it } : { key: it.id, item: it, hold: h };
+    });
   const out: CardEntry[] = [];
   while (words.length || mistakes.length) {
     const w = words.shift();

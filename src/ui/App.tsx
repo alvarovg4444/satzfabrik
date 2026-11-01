@@ -98,8 +98,8 @@ export function App() {
     window.scrollTo({ top: 0 });
   };
 
-  const startShift = (focus?: string[]) => {
-    setStartReq((r) => ({ n: r.n + 1, focus }));
+  const startShift = (focus?: string[], maintenance?: boolean) => {
+    setStartReq((r) => ({ n: r.n + 1, focus, maintenance }));
     go("schicht");
   };
 
@@ -118,13 +118,13 @@ export function App() {
     <div className="app">
       <TopBar onSettings={() => go(tab === "settings" ? returnTab : "settings")} />
       <main className="wrap">
-        {tab === "fabrik" ? <FactoryView onStartShift={() => startShift()} onShop={(t) => go("laden", t)} onPractice={(id) => startShift([id])} /> : null}
+        {tab === "fabrik" ? <FactoryView onStartShift={(maintenance) => startShift(undefined, maintenance)} onShop={(t) => go("laden", t)} onPractice={(id) => startShift([id])} /> : null}
         {tab === "laden" ? <ShopView initial={shopTab} /> : null}
         {/* The shift stays mounted so switching tabs never loses a half-written sentence. */}
         <div hidden={tab !== "schicht"} className="stack">
           <ShiftView startReq={startReq} goFactory={() => go("fabrik")} goDrill={() => go("training")} />
         </div>
-        {tab === "training" ? <TrainingView key={trainingKey} /> : null}
+        {tab === "training" ? <TrainingView key={trainingKey} onMaintenance={() => startShift(undefined, true)} /> : null}
         {tab === "statistik" ? <StatsView onPractice={(id) => startShift([id])} /> : null}
         {tab === "settings" ? <SettingsView onClose={() => go(returnTab)} /> : null}
       </main>

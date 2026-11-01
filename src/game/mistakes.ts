@@ -30,8 +30,6 @@ export interface MistakeCard {
 
 /** Days until the next review after 0, 1, 2, 3 and 4 right answers. */
 export const MISTAKE_DAYS = [1, 3, 7, 14, 30];
-/** Fehlerwörter mixed into one round of Schnellkarten. */
-export const MISTAKES_PER_ROUND = 6;
 /** The pile keeps the newest this many. */
 const MAX_PILE = 300;
 const DAY = 86_400_000;

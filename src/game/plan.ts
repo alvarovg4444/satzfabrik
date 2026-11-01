@@ -9,10 +9,10 @@ import type { GameState } from "./state";
 
 /**
  * The shift the learner would get now: new blueprints, due machines, weak spots, the
- * coach's focus and A1 refreshers. Used to start a shift, and to ask the AI for the
+ * coach's focus and A1 refreshers. A maintenance shift is only the rusting machines. Used to start a shift, and to ask the AI for the
  * next shift's situations ahead of time.
  */
-export function planShift(st: GameState, catalog: Catalog, now: number, extra: boolean): Task[] {
+export function planShift(st: GameState, catalog: Catalog, now: number, extra: boolean, maintenance = false): Task[] {
   const dueCount = Object.values(st.cards).filter((c) => isDue(c, now)).length;
   const size = st.settings.shiftSize;
   const newLeft = newLeftToday(st, now);
@@ -24,6 +24,7 @@ export function planShift(st: GameState, catalog: Catalog, now: number, extra: b
     focus: focusForShift(st),
     size,
     extra,
+    maintenance,
     maxNew: Math.min(newLeft, Math.max(3, Math.min(6, size - dueCount))),
     refresh: st.settings.refresh
       ? refreshers(
