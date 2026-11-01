@@ -215,7 +215,7 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
                 value={typedText}
                 onChange={(e) => setTyped(e.target.value)}
                 onClick={() => setKeys(true)}
-                placeholder={it.kind === "noun" ? "der/die/das …" : "auf Deutsch"}
+                placeholder={it.kind === "noun" ? "der/die/das …" : "Dein Wort …"}
               />
               <button type="submit" className="btn primary" disabled={!typedText.trim() || checking}>
                 Prüfen
