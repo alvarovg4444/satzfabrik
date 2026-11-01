@@ -130,7 +130,11 @@ const Cues = memo(function Cues({ task, items, grade }: { task: Task; items: Map
           >
             <span className="l">{c.label}</span>
             {c.sub ? <span className="s">{c.sub}</span> : null}
-            {shown[c.itemId] || grade ? <span className="r">{c.reveal}</span> : null}
+            {shown[c.itemId] || grade ? (
+              <span className="r">{c.reveal}</span>
+            ) : (
+              <span className="s cue-help">Hilfe: antippen</span>
+            )}
             {st ? (
               <span className="s" style={{ fontWeight: 700 }}>
                 {STATUS_LABEL[st]}

@@ -65,29 +65,41 @@ export function revealText(it: Item): string {
   }
 }
 
-/** Scaffolding fades with the stage: full form → German word → meaning only. */
+/**
+ * The first time (a blueprint, stage 0) the cue shows everything: the German word or the
+ * structure. On every review it only shows what to say (the meaning, or the structure's
+ * name), so the learner has to recall the rest; the full help is one tap away (reveal).
+ * A first-letter hint stays for the young stages (1–2) and goes after that.
+ */
 export function cueFor(it: Item, stage: number): Cue {
   const reveal = revealText(it);
   const initial = (s: string) => `${s.charAt(0)}…`;
+  const young = stage <= 2;
+  if (stage === 0) {
+    switch (it.kind) {
+      case "noun":
+        return { itemId: it.id, label: it.de, sub: it.en, reveal };
+      case "verb":
+        return { itemId: it.id, label: it.de, sub: `${it.en} · ${it.perf}`, reveal };
+      case "gram":
+        return { itemId: it.id, label: it.cue, sub: it.pattern, reveal };
+      default:
+        return { itemId: it.id, label: it.de, sub: it.en, reveal };
+    }
+  }
   switch (it.kind) {
     case "noun":
-      if (stage <= 1) return { itemId: it.id, label: it.de, sub: it.en, reveal };
-      if (stage === 2) return { itemId: it.id, label: it.lemma, sub: it.en, reveal };
-      return { itemId: it.id, label: it.en, sub: `Nomen · ${initial(it.lemma)}`, reveal };
+      return { itemId: it.id, label: it.en, sub: young ? `Nomen · ${initial(it.lemma)}` : "Nomen", reveal };
     case "verb":
-      if (stage <= 1) return { itemId: it.id, label: it.de, sub: `${it.en} · ${it.perf}`, reveal };
-      if (stage === 2) return { itemId: it.id, label: it.de, sub: it.en, reveal };
-      return { itemId: it.id, label: it.en, sub: `Verb · ${initial(it.lemma)}`, reveal };
+      return { itemId: it.id, label: it.en, sub: young ? `Verb · ${initial(it.lemma)}` : "Verb", reveal };
     case "adj":
     case "adv":
     case "word":
-      if (stage <= 2) return { itemId: it.id, label: it.de, sub: it.en, reveal };
-      return { itemId: it.id, label: it.en, sub: initial(it.lemma), reveal };
+      return { itemId: it.id, label: it.en, sub: young ? initial(it.lemma) : undefined, reveal };
     case "expr":
-      if (stage <= 2) return { itemId: it.id, label: it.de, sub: it.en, reveal };
-      return { itemId: it.id, label: it.en, sub: `Ausdruck · ${initial(it.de)}`, reveal };
+      return { itemId: it.id, label: it.en, sub: young ? `Ausdruck · ${initial(it.de)}` : "Ausdruck", reveal };
     case "gram":
-      return { itemId: it.id, label: it.cue, sub: stage <= 2 ? it.pattern : undefined, reveal };
+      return { itemId: it.id, label: it.name, sub: undefined, reveal: `${it.cue} · ${it.pattern} · ${reveal}` };
   }
 }
 
