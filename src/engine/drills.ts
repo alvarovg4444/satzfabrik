@@ -30,7 +30,64 @@ export interface DrillQ {
   accept?: string[];
   explain: string;
   itemId?: string;
+  /** For case questions: why this case, why not the other, and all forms with the right one marked. */
+  caseHelp?: CaseHelp;
 }
+
+export interface CaseHelp {
+  c: Case;
+  /** Why this case here. */
+  why: string;
+  /** When it would be the other case, with an example where there is one. */
+  whyNot: string;
+  table: CaseTable;
+}
+
+/** A small table: head row, then rows; the cell at [row, col] is the answer. */
+export interface CaseTable {
+  title: string;
+  head: string[];
+  rows: { label: string; cells: string[] }[];
+  hl: [number, number];
+}
+
+/** The four questions that pick the case, in order (shown with every case mistake and on the start screen). */
+export const CASE_CHECK: { q: string; a: string }[] = [
+  {
+    q: "1. Steht eine Präposition davor?",
+    a: "Dann entscheidet sie. Immer Dativ: aus, bei, mit, nach, seit, von, zu. Immer Akkusativ: durch, für, gegen, ohne, um. Wechselpräpositionen (an, auf, hinter, in, neben, über, unter, vor, zwischen): Wo? → Dativ, Wohin? → Akkusativ.",
+  },
+  { q: "2. Wer oder was tut etwas?", a: "Das Subjekt steht im Nominativ. Auch nach sein, werden, bleiben: Das ist mein Bruder." },
+  { q: "3. Wen oder was?", a: "Das direkte Objekt steht im Akkusativ. Die meisten Verben: sehen, brauchen, besuchen, anrufen, fragen …" },
+  {
+    q: "4. Wem?",
+    a: "Die Person, die etwas bekommt (geben, schicken, zeigen, schenken: jemandem etwas), und alle Dativ-Verben: helfen, danken, gefallen, gehören, passen, schmecken, gratulieren, antworten, zuhören.",
+  },
+];
+
+/** The article table in one line each, to say out loud until it sits. */
+export const CASE_CHANT = [
+  "Nominativ: der · die · das · die",
+  "Akkusativ: den · die · das · die (nur der → den ändert sich)",
+  "Dativ: dem · der · dem · den (+ n am Plural: den Kindern)",
+];
+
+const CASES: Case[] = ["nom", "akk", "dat"];
+const SLOTS: Slot[] = ["m", "f", "n", "pl"];
+const SLOT_HEAD = ["m", "f", "n", "Pl."];
+const CASE_ROW = (c: Case) => CASES.indexOf(c);
+
+function articleTable(c: Case, slot: Slot, title = "Bestimmter Artikel"): CaseTable {
+  return {
+    title,
+    head: ["", ...SLOT_HEAD],
+    rows: CASES.map((k) => ({ label: CASE_DE[k], cells: SLOTS.map((g) => DEF[k][g]) })),
+    hl: [CASE_ROW(c), SLOTS.indexOf(slot)],
+  };
+}
+
+const DAT_PREPS = "aus, bei, mit, nach, seit, von, zu";
+const AKK_PREPS = "durch, für, gegen, ohne, um"; 
 
 export const DRILL_LABELS: Record<DrillKind, string> = {
   gender: "der, die oder das?",
@@ -45,10 +102,10 @@ export const DRILL_LABELS: Record<DrillKind, string> = {
   adj_ending: "Adjektivendungen",
 };
 
-type Case = "nom" | "akk" | "dat";
+export type Case = "nom" | "akk" | "dat";
 type Slot = Gender | "pl";
 
-const CASE_DE: Record<Case, string> = { nom: "Nominativ", akk: "Akkusativ", dat: "Dativ" };
+export const CASE_DE: Record<Case, string> = { nom: "Nominativ", akk: "Akkusativ", dat: "Dativ" };
 
 const DEF: Record<Case, Record<Slot, string>> = {
   nom: { m: "der", f: "die", n: "das", pl: "die" },
@@ -89,19 +146,20 @@ const NOT_WITH_DU = ["du", "ihr", "Sie"];
 const NOT_WITH_ICH = ["ich", "wir"];
 const NOT_WITH_WIR = ["ich", "wir"];
 
-const PRONOUN_FRAMES: { de: string; c: "akk" | "dat"; why: string; exclude: string[] }[] = [
-  { de: "Kannst du ___ morgen anrufen?", c: "akk", why: "anrufen + Akkusativ", exclude: NOT_WITH_DU },
-  { de: "Ich helfe ___ gern beim Umzug.", c: "dat", why: "helfen + Dativ", exclude: NOT_WITH_ICH },
-  { de: "Wir laden ___ zum Essen ein.", c: "akk", why: "einladen + Akkusativ", exclude: NOT_WITH_WIR },
-  { de: "Die Wohnung gefällt ___ sehr.", c: "dat", why: "gefallen + Dativ", exclude: [] },
-  { de: "Ich habe ___ gestern im Supermarkt gesehen.", c: "akk", why: "sehen + Akkusativ", exclude: NOT_WITH_ICH },
-  { de: "Ich schicke ___ die Unterlagen per E-Mail.", c: "dat", why: "jemandem etwas schicken: Person im Dativ", exclude: NOT_WITH_ICH },
-  { de: "Der Arzt hat ___ sofort untersucht.", c: "akk", why: "untersuchen + Akkusativ", exclude: [] },
-  { de: "Die Jacke passt ___ leider nicht.", c: "dat", why: "passen + Dativ", exclude: [] },
-  { de: "Ich vermisse ___ sehr.", c: "akk", why: "vermissen + Akkusativ", exclude: NOT_WITH_ICH },
-  { de: "Kannst du ___ bitte kurz zuhören?", c: "dat", why: "zuhören + Dativ", exclude: NOT_WITH_DU },
-  { de: "Ich frage ___ morgen nach dem Termin.", c: "akk", why: "fragen + Akkusativ", exclude: NOT_WITH_ICH },
-  { de: "Ich gratuliere ___ zum Geburtstag!", c: "dat", why: "gratulieren + Dativ", exclude: NOT_WITH_ICH },
+/** why: the short rule; long: the question that finds the case. */
+const PRONOUN_FRAMES: { de: string; c: "akk" | "dat"; why: string; long: string; exclude: string[] }[] = [
+  { de: "Kannst du ___ morgen anrufen?", c: "akk", why: "anrufen + Akkusativ", long: "anrufen hat ein direktes Objekt: Wen rufst du an?", exclude: NOT_WITH_DU },
+  { de: "Ich helfe ___ gern beim Umzug.", c: "dat", why: "helfen + Dativ", long: "helfen ist ein Dativ-Verb: Wem helfe ich? (nicht „wen“)", exclude: NOT_WITH_ICH },
+  { de: "Wir laden ___ zum Essen ein.", c: "akk", why: "einladen + Akkusativ", long: "einladen hat ein direktes Objekt: Wen laden wir ein?", exclude: NOT_WITH_WIR },
+  { de: "Die Wohnung gefällt ___ sehr.", c: "dat", why: "gefallen + Dativ", long: "Bei gefallen ist die Wohnung das Subjekt. Die Person, der sie gefällt, steht im Dativ: Wem gefällt die Wohnung?", exclude: [] },
+  { de: "Ich habe ___ gestern im Supermarkt gesehen.", c: "akk", why: "sehen + Akkusativ", long: "sehen hat ein direktes Objekt: Wen habe ich gesehen?", exclude: NOT_WITH_ICH },
+  { de: "Ich schicke ___ die Unterlagen per E-Mail.", c: "dat", why: "jemandem etwas schicken: Person im Dativ", long: "schicken hat zwei Objekte: was (die Unterlagen, Akkusativ) und wem (die Person, die sie bekommt, Dativ).", exclude: NOT_WITH_ICH },
+  { de: "Der Arzt hat ___ sofort untersucht.", c: "akk", why: "untersuchen + Akkusativ", long: "untersuchen hat ein direktes Objekt: Wen hat der Arzt untersucht?", exclude: [] },
+  { de: "Die Jacke passt ___ leider nicht.", c: "dat", why: "passen + Dativ", long: "Bei passen ist die Jacke das Subjekt. Die Person steht im Dativ: Wem passt die Jacke?", exclude: [] },
+  { de: "Ich vermisse ___ sehr.", c: "akk", why: "vermissen + Akkusativ", long: "vermissen hat ein direktes Objekt: Wen vermisse ich?", exclude: NOT_WITH_ICH },
+  { de: "Kannst du ___ bitte kurz zuhören?", c: "dat", why: "zuhören + Dativ", long: "zuhören ist ein Dativ-Verb: Wem hörst du zu?", exclude: NOT_WITH_DU },
+  { de: "Ich frage ___ morgen nach dem Termin.", c: "akk", why: "fragen + Akkusativ", long: "fragen hat ein direktes Objekt: Wen frage ich? (Auch wenn es sich nach „wem“ anfühlt: fragen ist Akkusativ.)", exclude: NOT_WITH_ICH },
+  { de: "Ich gratuliere ___ zum Geburtstag!", c: "dat", why: "gratulieren + Dativ", long: "gratulieren ist ein Dativ-Verb: Wem gratuliere ich?", exclude: NOT_WITH_ICH },
 ];
 
 const POSS = [
@@ -136,11 +194,16 @@ const PEOPLE: { lemma: string; g: Slot; dat?: string }[] = [
   { lemma: "Freunde", g: "pl", dat: "Freunden" },
 ];
 
-const POSS_FRAMES: { c: Case; de: (np: string, plural: boolean) => string }[] = [
-  { c: "nom", de: (np, pl) => `Das ${pl ? "sind" : "ist"} ${np}.` },
-  { c: "akk", de: (np) => `Ich besuche ${np} am Wochenende.` },
-  { c: "dat", de: (np) => `Ich telefoniere oft mit ${np}.` },
+const POSS_FRAMES: { c: Case; why: string; de: (np: string, plural: boolean) => string }[] = [
+  { c: "nom", why: "Nach „sein“ (ist, sind) steht Nominativ: Es ist kein Objekt, nur „A = B“. Das ist wer?", de: (np, pl) => `Das ${pl ? "sind" : "ist"} ${np}.` },
+  { c: "akk", why: "besuchen hat ein direktes Objekt: Wen besuche ich? → Akkusativ.", de: (np) => `Ich besuche ${np} am Wochenende.` },
+  { c: "dat", why: `„mit“ steht immer mit Dativ (wie ${DAT_PREPS}).`, de: (np) => `Ich telefoniere oft mit ${np}.` },
 ];
+const WHY_NOT: Record<Case, string> = {
+  nom: "Akkusativ wäre es als direktes Objekt (Ich sehe meinen Bruder), Dativ nach mit, bei, von … (mit meinem Bruder).",
+  akk: "Nominativ wäre es als Subjekt oder nach „sein“ (Das ist mein Bruder), Dativ nach mit, bei, von … oder bei Dativ-Verben (Ich helfe meinem Bruder).",
+  dat: "Ohne Präposition und als direktes Objekt wäre es Akkusativ (Ich besuche meinen Bruder), als Subjekt Nominativ.",
+};
 
 // Adjective endings: weak after der-words, mixed after ein-words.
 const ADJ_DEF: Record<Case, Record<Gender, string>> = {
@@ -160,10 +223,10 @@ const INDEF: Record<Case, Record<Gender, string>> = {
 };
 const ADJECTIVES = ["neu", "alt", "groß", "klein", "gut", "wichtig"];
 
-const ADJ_FRAMES: { c: Case; de: (np: string) => string }[] = [
-  { c: "nom", de: (np) => `Hier ist ${np}.` },
-  { c: "akk", de: (np) => `Wir brauchen ${np}.` },
-  { c: "dat", de: (np) => `Das hat mit ${np} zu tun.` },
+const ADJ_FRAMES: { c: Case; why: string; de: (np: string) => string }[] = [
+  { c: "nom", why: "„Hier ist …“: Das Ding ist das Subjekt (Was ist hier?) → Nominativ.", de: (np) => `Hier ist ${np}.` },
+  { c: "akk", why: "brauchen hat ein direktes Objekt: Was brauchen wir? → Akkusativ.", de: (np) => `Wir brauchen ${np}.` },
+  { c: "dat", why: `„mit“ steht immer mit Dativ (wie ${DAT_PREPS}).`, de: (np) => `Das hat mit ${np} zu tun.` },
 ];
 
 /** Wo? (Dativ) vs Wohin? (Akkusativ) with position verbs. Hand-made so every sentence is natural. */
@@ -305,6 +368,16 @@ function prepQ(n: NounItem, r: () => number): DrillQ {
     answer,
     explain: `${prep} + ${CASE_DE[c]} → ${answer} ${n.lemma}`,
     itemId: n.id,
+    caseHelp: {
+      c,
+      why: dat
+        ? `„${prep}“ steht immer mit Dativ, egal was im Satz passiert. Immer Dativ: ${DAT_PREPS}.`
+        : `„${prep}“ steht immer mit Akkusativ, egal was im Satz passiert. Immer Akkusativ: ${AKK_PREPS}.`,
+      whyNot: dat
+        ? `Akkusativ kommt nach ${AKK_PREPS}: für ${DEF.akk[n.gender]} ${n.lemma}.`
+        : `Dativ kommt nach ${DAT_PREPS}: mit ${DEF.dat[n.gender]} ${n.lemma}.`,
+      table: articleTable(c, n.gender, `${n.de}: alle Fälle`),
+    },
   };
 }
 
@@ -321,6 +394,16 @@ function wechselQ(r: () => number): DrillQ {
     options: shuffle([right, wrong], r),
     answer: right,
     explain: `${wo ? "Wo? → Dativ" : "Wohin? → Akkusativ"}: ${right} ${w.noun}`,
+    caseHelp: {
+      c: wo ? "dat" : "akk",
+      why: wo
+        ? `„${w.prep}“ ist eine Wechselpräposition. „${w.wo}“ sagt, wo etwas ist (Ort, keine Bewegung zu einem Ziel): Wo? → Dativ.`
+        : `„${w.prep}“ ist eine Wechselpräposition. „${w.wohin}“ ist eine Bewegung zu einem Ziel: Wohin? → Akkusativ.`,
+      whyNot: wo
+        ? `Mit Bewegung zum Ziel wäre es Akkusativ: ${w.wohin} ${wrong} ${w.noun}. (Wohin?)`
+        : `Ohne Bewegung, nur der Ort, wäre es Dativ: ${w.wo} ${wrong} ${w.noun}. (Wo?)`,
+      table: articleTable(wo ? "dat" : "akk", w.g, `${ARTICLE_OF[w.g]} ${w.noun}: alle Fälle`),
+    },
   };
 }
 
@@ -336,6 +419,20 @@ function pronounQ(r: () => number): DrillQ {
     hint: `(${p.nom})`,
     answer,
     explain: `${f.why}: ${p.nom} → ${answer}`,
+    caseHelp: {
+      c: f.c,
+      why: `${f.long} → ${CASE_DE[f.c]}.`,
+      whyNot:
+        f.c === "akk"
+          ? "Dativ wäre es bei Dativ-Verben (helfen, danken, gefallen, gehören, passen, gratulieren) oder für die Person, die etwas bekommt: Ich gebe dir das Buch."
+          : "Akkusativ wäre es bei einem direkten Objekt (Wen? Was?): Ich sehe dich. Ich rufe dich an.",
+      table: {
+        title: "Personalpronomen",
+        head: ["Nom.", "Akk.", "Dat."],
+        rows: PRONOUNS.map((x) => ({ label: x.nom, cells: [x.akk, x.dat] })),
+        hl: [PRONOUNS.indexOf(p), f.c === "akk" ? 0 : 1],
+      },
+    },
   };
 }
 
@@ -356,6 +453,20 @@ function possessiveQ(r: () => number): DrillQ {
     hint: `(${owner.owner})`,
     answer: det,
     explain: `${owner.owner} → ${owner.stem}, ${CASE_DE[frame.c]}: ${det} ${noun}`,
+    caseHelp: {
+      c: frame.c,
+      why: frame.why,
+      whyNot: WHY_NOT[frame.c],
+      table: {
+        title: `${owner.stem}: alle Fälle (Endung wie ein/eine)`,
+        head: ["", ...SLOT_HEAD],
+        rows: CASES.map((k) => ({
+          label: CASE_DE[k],
+          cells: SLOTS.map((g) => (owner.stem === "euer" && POSS_END[k][g] ? "eur" : owner.stem) + POSS_END[k][g]),
+        })),
+        hl: [CASE_ROW(frame.c), SLOTS.indexOf(person.g)],
+      },
+    },
   };
 }
 
@@ -373,8 +484,25 @@ function adjQ(n: NounItem, r: () => number): DrillQ {
     answer,
     explain: `${CASE_DE[frame.c]}, ${n.de}: ${art} ${answer} ${n.lemma}`,
     itemId: n.id,
+    caseHelp: {
+      c: frame.c,
+      why: frame.why,
+      whyNot: WHY_NOT[frame.c],
+      table: {
+        title: `${indef ? "ein" : "der"} + ${adj}: alle Fälle`,
+        head: ["", "m", "f", "n"],
+        rows: CASES.map((k) => ({
+          label: CASE_DE[k],
+          cells: (["m", "f", "n"] as Gender[]).map((g) => `${indef ? INDEF[k][g] : DEF[k][g]} ${adj}${indef ? ADJ_INDEF[k][g] : ADJ_DEF[k][g]}`),
+        })),
+        hl: [CASE_ROW(frame.c), (["m", "f", "n"] as Gender[]).indexOf(n.gender)],
+      },
+    },
   };
 }
+
+/** The drills that are about Nominativ, Akkusativ and Dativ. */
+export const CASE_KINDS: DrillKind[] = ["prep_case", "prep_case", "wechsel", "wechsel", "pronoun", "pronoun", "possessive", "adj_ending"];
 
 const DEFAULT_MIX: DrillKind[] = [
   "gender",

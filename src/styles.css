@@ -1926,3 +1926,64 @@ textarea.input {
 s.was {
   color: var(--brick);
 }
+
+/* Akkord: why this case, with the whole table */
+.case-help {
+  text-align: left;
+}
+.case-help p {
+  margin: 0;
+}
+.case-table-wrap {
+  overflow-x: auto;
+}
+.case-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 0.9rem;
+}
+.case-table th,
+.case-table td {
+  border: 1px solid var(--line);
+  padding: 5px 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+.case-table thead th {
+  font-weight: 600;
+  opacity: 0.75;
+}
+.case-table tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+.case-table .hl-row {
+  background: var(--ok-soft);
+}
+.case-table td.hl {
+  background: var(--ok);
+  color: #fff;
+  font-weight: 700;
+}
+.case-check {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
+  text-align: left;
+}
+.case-check summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.case-check ol,
+.case-check ul {
+  margin: 6px 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.case-check p {
+  margin: 4px 0 0;
+}

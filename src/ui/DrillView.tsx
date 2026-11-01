@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BUILTIN_ITEMS } from "../content/catalog";
 import type { Item } from "../content/types";
-import { buildDrillRound, checkDrill, DRILL_LABELS, drillSeed, typed as typedQ, type DrillQ } from "../engine/drills";
+import { buildDrillRound, CASE_KINDS, checkDrill, DRILL_LABELS, drillSeed, typed as typedQ, type DrillQ } from "../engine/drills";
+import { CaseCheck, CaseHelpView } from "./CaseHelp";
 import { applyDrill } from "../game/actions";
 import { drillReward, drillSeconds, fmt } from "../game/economy";
 import { drillFocus } from "../game/training";
@@ -38,6 +39,7 @@ export function DrillView({ onBack }: { onBack: () => void }) {
   const endAt = useRef(0);
   const pausedAt = useRef(0);
   const rounds = useRef(0);
+  const lastCases = useRef(false);
   const finished = useRef(true);
   const scoreRef = useRef(score);
   const missRef = useRef<DrillQ[]>([]);
@@ -108,9 +110,11 @@ export function DrillView({ onBack }: { onBack: () => void }) {
     setPhase({ k: "run", calm });
   };
 
-  const start = () => {
+  /** cases: only Nominativ/Akkusativ/Dativ questions. */
+  const start = (cases = lastCases.current) => {
     rounds.current++;
-    const round = buildDrillRound(owned, BUILTIN_ITEMS, drillSeed(Date.now(), rounds.current), timer ? 40 : UNTIMED, focus.mix, focus.words);
+    lastCases.current = cases;
+    const round = buildDrillRound(owned, BUILTIN_ITEMS, drillSeed(Date.now(), rounds.current), timer ? 40 : UNTIMED, cases ? CASE_KINDS : focus.mix, focus.words);
     begin(round, false);
   };
 
@@ -189,9 +193,17 @@ export function DrillView({ onBack }: { onBack: () => void }) {
           </span>
           <input id="drill-timer" type="checkbox" checked={timer} onChange={(e) => store.update((d) => void (d.settings.drillTimer = e.target.checked))} />
         </label>
-        <button type="button" className="btn primary block" onClick={start}>
+        <button type="button" className="btn primary block" onClick={() => start(false)}>
           <Icon name="bolt" size={18} /> Los geht's
         </button>
+        <button type="button" className="btn block" onClick={() => start(true)}>
+          Nur Fälle: Nominativ, Akkusativ, Dativ
+        </button>
+        <p className="small muted">
+          Präpositionen, Wo?/Wohin?, Pronomen, mein/dein und Adjektive. Bei jedem Fehler siehst du, warum es dieser Fall ist, und die ganze
+          Tabelle.
+        </p>
+        <CaseCheck />
       </section>
     );
   }
@@ -227,7 +239,7 @@ export function DrillView({ onBack }: { onBack: () => void }) {
               Nochmal die Fehler
             </button>
           ) : null}
-          <button type="button" className={`btn ${open ? "" : "primary"}`} onClick={start}>
+          <button type="button" className={`btn ${open ? "" : "primary"}`} onClick={() => start()}>
             Neue Runde
           </button>
           <button type="button" className="btn ghost" onClick={onBack}>
@@ -268,6 +280,7 @@ export function DrillView({ onBack }: { onBack: () => void }) {
             ) : null}
             <p className="answer-big">{q.prompt.replace("___", q.answer)}</p>
             {q.prompt.replace("___", q.answer).includes(q.explain) ? null : <p className="small">{q.explain}</p>}
+            {q.caseHelp ? <CaseHelpView help={q.caseHelp} /> : null}
             {timed ? <p className="small muted">Die Uhr steht, bis du weitertippst.</p> : null}
             <button type="button" className="btn primary block" autoFocus onClick={advance}>
               Weiter <Icon name="arrow" size={18} />
