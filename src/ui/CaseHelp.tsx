@@ -57,7 +57,7 @@ export function CaseCheck({ open = false }: { open?: boolean }) {
 }
 
 /** Shown after a wrong case answer: why this case, when it would be the other one, and the whole table. */
-export function CaseHelpView({ help }: { help: Help }) {
+export function CaseHelpView({ help, compact = false }: { help: Help; compact?: boolean }) {
   return (
     <div className="case-help stack" style={{ gap: 8 }}>
       <p className="small">
@@ -67,7 +67,7 @@ export function CaseHelpView({ help }: { help: Help }) {
         <b>Und sonst?</b> {help.whyNot}
       </p>
       <CaseTableView t={help.table} />
-      <CaseCheck />
+      {compact ? null : <CaseCheck />}
     </div>
   );
 }

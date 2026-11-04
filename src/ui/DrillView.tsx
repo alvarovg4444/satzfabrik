@@ -147,7 +147,9 @@ export function DrillView({ onBack }: { onBack: () => void }) {
       sfx.coin();
       floatCoins(gain, boxRef.current);
       setFlash({ ok, given });
-      setTimeout(advance, 450);
+      // a case question stays on screen with its reason (the clock stops); the rest move on
+      if (q.caseHelp) pausedAt.current = Date.now();
+      else setTimeout(advance, 450);
       return;
     }
     sfx.bad();
@@ -335,7 +337,18 @@ export function DrillView({ onBack }: { onBack: () => void }) {
             sentences={false}
           />
         ) : null}
-        {flash?.ok ? (
+        {flash?.ok && q.caseHelp ? (
+          <div className="stack" style={{ gap: 8 }}>
+            <p className="answer-big" style={{ color: "var(--ok)" }}>
+              Richtig! {q.prompt.replace("___", q.answer)}
+            </p>
+            <CaseHelpView help={q.caseHelp} compact />
+            {timed ? <p className="small muted">Die Uhr steht, bis du weitertippst.</p> : null}
+            <button type="button" className="btn primary block" autoFocus onClick={advance}>
+              Weiter <Icon name="arrow" size={18} />
+            </button>
+          </div>
+        ) : flash?.ok ? (
           <p className="small" style={{ textAlign: "center", color: "var(--ok)" }}>
             Richtig!
           </p>
