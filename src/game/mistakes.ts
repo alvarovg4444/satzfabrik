@@ -20,6 +20,8 @@ export interface MistakeCard {
   type: ErrorType;
   /** What the learner wrote. */
   wrong: string;
+  /** The corrected words as they stand in `sentence` (the exact form to recall). */
+  right?: string;
   /** The corrected sentence it was in. */
   sentence: string;
   /** A word the learner wrote in [brackets] in a sentence because they did not know it. */
@@ -125,7 +127,7 @@ export function noteMistakes(s: GameState, catalog: Catalog, grade: Pick<GradeRe
     const word = it ? it.de : e.word?.trim();
     const en = it ? it.en : e.en?.trim();
     if (!word || !en) continue;
-    put(s, { word, en, itemId: it?.id, type: e.type, wrong: e.wrong, sentence: grade.corrected, step: 0, due: now + MISTAKE_DAYS[0] * DAY, added: now });
+    put(s, { word, en, itemId: it?.id, type: e.type, wrong: e.wrong, right: e.right.trim() || undefined, sentence: grade.corrected, step: 0, due: now + MISTAKE_DAYS[0] * DAY, added: now });
     n++;
   }
   return n;
@@ -141,7 +143,7 @@ export function noteLookups(s: GameState, catalog: Catalog, grade: Pick<GradeRes
     const it = findItem(catalog, { type: "word_choice", right: l.used, word: l.word });
     const word = it ? it.de : l.word.trim();
     if (!word) continue;
-    put(s, { word, en: l.en.trim(), itemId: it?.id, type: "word_choice", lookup: true, wrong: `[${l.en.trim()}]`, sentence: grade.corrected, step: 0, due: now, added: now });
+    put(s, { word, en: l.en.trim(), itemId: it?.id, type: "word_choice", lookup: true, wrong: `[${l.en.trim()}]`, right: l.used.trim() || undefined, sentence: grade.corrected, step: 0, due: now, added: now });
     n++;
   }
   return n;
@@ -155,6 +157,42 @@ export function seedMistakes(s: GameState, catalog: Catalog, now: number): void 
     const errors = j.errors.filter((e) => WORD_TYPES.has(e.type)).map((e) => ({ ...e, rule: "", word: "", en: "" }));
     if (errors.length) noteMistakes(s, catalog, { errors, corrected: j.corrected }, now);
   }
+}
+
+/** A gap sentence: the corrected sentence with the exact form taken out. */
+export interface Cloze {
+  before: string;
+  after: string;
+  answer: string;
+  /** What helps without giving it away: what the learner wrote, or the bracketed meaning. */
+  hint: string;
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The card as a gap in the learner's own corrected sentence, asking for the exact form they
+ * got wrong ("wir ___ eine Feier organisieren" → "müssen"). Older cards that never stored the
+ * corrected words find them in the sentence archive. Null when the form cannot be found
+ * in the sentence (or is too long for a card): then the card asks for the dictionary form.
+ */
+export function clozeFor(s: Pick<GameState, "journal">, c: MistakeCard): Cloze | null {
+  let right = c.right;
+  if (!right) {
+    const j = s.journal.find((x) => x.corrected === c.sentence);
+    right = j?.errors.find((e) => e.wrong === c.wrong)?.right;
+  }
+  right = right?.trim();
+  if (!right || right.split(/\s+/).length > 4) return null;
+  const m = new RegExp(`(^|[^\\p{L}])(${escapeRe(right)})(?=$|[^\\p{L}])`, "iu").exec(c.sentence);
+  if (!m) return null;
+  const at = m.index + m[1].length;
+  return {
+    before: c.sentence.slice(0, at),
+    after: c.sentence.slice(at + m[2].length),
+    answer: m[2],
+    hint: c.lookup ? c.en : `Du hattest: ${c.wrong}`,
+  };
 }
 
 /** Fehlerwörter due now, longest waiting first. */

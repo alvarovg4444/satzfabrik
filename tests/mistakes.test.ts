@@ -127,3 +127,45 @@ describe("words in [brackets]", () => {
     expect(coerceGrade({ corrected: "Hallo." }, []).lookups).toBeUndefined();
   });
 });
+
+describe("Fehlerwörter as gap sentences", () => {
+  it("ask for the exact form in the learner's corrected sentence", async () => {
+    const { clozeFor } = await import("../src/game/mistakes");
+    const s = newGame(T0);
+    noteMistakes(
+      s,
+      catalog,
+      { corrected: "Hallo, wir müssen eine Feier organisieren.", errors: [{ ...err("word_choice", "brauchen", "müssen", "müssen", "must"), word: "müssen" }] },
+      T0,
+    );
+    const round = trainingCards(s, catalog, T0 + DAY);
+    const card = round.find((e) => e.mistake)!;
+    expect(card.cloze).toEqual({ before: "Hallo, wir ", after: " eine Feier organisieren.", answer: "müssen", hint: "Du hattest: brauchen" });
+    // older cards without the corrected words find them in the sentence archive
+    const old = { ...card.mistake!, right: undefined };
+    expect(clozeFor(s, old)).toBeNull();
+    s.journal.unshift({ t: T0, type: "produce", targets: [], prompt: "", answer: "", corrected: old.sentence, quality: "minor", errors: [{ type: "word_choice", wrong: "brauchen", right: "müssen", explain: "" }] });
+    expect(clozeFor(s, old)?.answer).toBe("müssen");
+  });
+
+  it("match whole words only, and fall back when the form is not in the sentence", async () => {
+    const { clozeFor } = await import("../src/game/mistakes");
+    const s = newGame(T0);
+    const base = { word: "der Tisch", en: "table", type: "gender" as const, wrong: "die Tisch", step: 0, due: T0, added: T0 };
+    expect(clozeFor(s, { ...base, right: "den Tisch", sentence: "Ich kaufe den Tischler und den Tisch." })?.before).toBe("Ich kaufe den Tischler und ");
+    expect(clozeFor(s, { ...base, right: "dem Tisch", sentence: "Das Buch liegt auf dem Stuhl." })).toBeNull();
+  });
+});
+
+describe("Schnellkarten in batches", () => {
+  it("a round has at most CARDS_PER_ROUND cards, Fehlerwörter taking turns with words", async () => {
+    const { CARDS_PER_ROUND, cardsWaiting } = await import("../src/game/training");
+    const s = newGame(T0);
+    for (let i = 0; i < 20; i++) {
+      noteMistakes(s, catalog, { corrected: `Satz ${i} mit Wort${i}.`, errors: [err("spelling", `Wrot${i}`, `Wort${i}`, `Wort${i}`, `word ${i}`)] }, T0 + i);
+    }
+    const round = trainingCards(s, catalog, T0 + 2 * DAY);
+    expect(round).toHaveLength(CARDS_PER_ROUND);
+    expect(cardsWaiting(s, catalog, T0 + 2 * DAY).total).toBe(20);
+  });
+});

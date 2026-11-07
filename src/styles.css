@@ -1987,3 +1987,16 @@ s.was {
 .case-check p {
   margin: 4px 0 0;
 }
+
+/* Schnellkarten: a Fehlerwort as a gap in the learner's own sentence */
+.drill-prompt.cloze {
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+.drill-prompt.cloze .gap {
+  display: inline-block;
+  min-width: 3ch;
+  padding: 0 4px;
+  border-bottom: 2px solid var(--gold);
+  color: var(--gold);
+}

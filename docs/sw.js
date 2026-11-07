@@ -1,6 +1,6 @@
 // Satzfabrik service worker: keeps the game on the device so it starts without internet.
 // The voices have their own cache (src/ui/neural.worker.ts) and are left alone here.
-const VERSION = "eb07072a43c1";
+const VERSION = "7be595603605";
 const APP = `satzfabrik-app-${VERSION}`;
 const FONTS = "satzfabrik-fonts";
 const FILES = ["./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png", "favicon.png"];

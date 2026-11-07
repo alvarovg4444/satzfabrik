@@ -3,7 +3,7 @@ import type { ErrorType, Item } from "../content/types";
 import type { DrillKind } from "../engine/drills";
 import { holdStatus, isDue, stageOf } from "../engine/srs";
 import { dayKey, norm } from "../engine/text";
-import { dueMistakes, mistakeItem, type MistakeCard } from "./mistakes";
+import { clozeFor, dueMistakes, mistakeItem, type Cloze, type MistakeCard } from "./mistakes";
 import type { GameState } from "./state";
 
 /*
@@ -17,7 +17,7 @@ import type { GameState } from "./state";
 // --- Schnellkarten ---------------------------------------------------------------
 
 const CARD_KINDS = new Set<Item["kind"]>(["noun", "verb", "adj", "adv", "word"]);
-/** Cards per round when little is due: about three minutes. Rusting words and due Fehlerwörter all come, even past it. */
+/** Cards per round, about three minutes; the rest come in the next round. */
 export const CARDS_PER_ROUND = 15;
 
 /**
@@ -44,18 +44,23 @@ export interface CardEntry {
   key: string;
   item: Item;
   mistake?: MistakeCard;
+  /** A Fehlerwort asked as a gap in the learner's corrected sentence (the exact form). */
+  cloze?: Cloze;
   /** For a rusting machine: whether a right answer holds the rust off ("hold") or not any more ("used"). */
   hold?: "hold" | "used";
 }
 
 /**
- * A round: all due Fehlerwörter mixed in between all the rusting words, every second card;
- * today's new words fill the round up to max.
+ * A round of max cards: rusting words (rustiest first) and due Fehlerwörter take turns,
+ * then today's new words. What does not fit comes in the next round.
  */
 export function trainingCards(s: GameState, catalog: Catalog, now: number, max = CARDS_PER_ROUND): CardEntry[] {
-  const mistakes = dueMistakes(s, now).map(({ key, card }): CardEntry => ({ key: `m:${key}`, item: mistakeItem(catalog, card), mistake: card }));
+  const mistakes = dueMistakes(s, now).map(({ key, card }): CardEntry => {
+    const cloze = clozeFor(s, card);
+    return { key: `m:${key}`, item: mistakeItem(catalog, card), mistake: card, ...(cloze ? { cloze } : {}) };
+  });
   const taken = new Set(mistakes.map((m) => m.item.id));
-  const words = cardQueue(s, catalog, now, Math.max(0, max - mistakes.length))
+  const words = cardQueue(s, catalog, now, max)
     .filter((it) => !taken.has(it.id))
     .map((it): CardEntry => {
       const c = s.cards[it.id];
@@ -63,11 +68,11 @@ export function trainingCards(s: GameState, catalog: Catalog, now: number, max =
       return h === "none" ? { key: it.id, item: it } : { key: it.id, item: it, hold: h };
     });
   const out: CardEntry[] = [];
-  while (words.length || mistakes.length) {
+  while ((words.length || mistakes.length) && out.length < max) {
     const w = words.shift();
     if (w) out.push(w);
     const m = mistakes.shift();
-    if (m) out.push(m);
+    if (m && out.length < max) out.push(m);
   }
   return out;
 }

@@ -61,16 +61,20 @@ describe("rust in shifts", () => {
 });
 
 describe("rust in Schnellkarten", () => {
-  it("brings every rusting word, marked whether a right card still holds the rust off", () => {
+  it("brings the rustiest words in batches, marked whether a right card still holds the rust off", () => {
     const s = newGame(T0);
     const ids = words.slice(0, CARDS_PER_ROUND + 5).map((w) => w.id);
     ids.forEach((id, i) => (s.cards[id] = rusty(id, i + 1)));
-    let used = s.cards[ids[0]];
-    for (let k = 0; k < MAX_HOLDS; k++) used = { ...holdOff(used, T0), due: T0 - DAY };
-    s.cards[ids[0]] = used;
+    const old = ids[ids.length - 1];
+    let used = s.cards[old];
+    for (let k = 0; k < MAX_HOLDS; k++) used = { ...holdOff(used, T0), due: T0 - 30 * DAY };
+    s.cards[old] = used;
+    // rounds come in batches; the rustiest words first
     const round = trainingCards(s, catalog, T0);
-    expect(round.map((e) => e.key).sort()).toEqual([...ids].sort());
-    expect(round.find((e) => e.key === ids[0])!.hold).toBe("used");
-    expect(round.find((e) => e.key === ids[1])!.hold).toBe("hold");
+    expect(round).toHaveLength(CARDS_PER_ROUND);
+    const rustiest = [...ids].sort((a, b) => s.cards[a].due - s.cards[b].due).slice(0, CARDS_PER_ROUND);
+    expect(round.map((e) => e.key).sort()).toEqual(rustiest.sort());
+    expect(round.find((e) => e.key === old)!.hold).toBe("used");
+    expect(round.find((e) => e.key === ids[ids.length - 2])!.hold).toBe("hold");
   });
 });

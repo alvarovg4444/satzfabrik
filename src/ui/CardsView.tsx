@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { applyCard, applyMistakeCard } from "../game/actions";
 import { fmt } from "../game/economy";
-import { cardHint, checkCard, trainingCards, type CardCheck, type CardEntry } from "../game/training";
+import { cardHint, cardsWaiting, checkCard, trainingCards, type CardCheck, type CardEntry } from "../game/training";
+import { norm } from "../engine/text";
 import { MISTAKE_DAYS } from "../game/mistakes";
 import { holdDays, isDue } from "../engine/srs";
 import { checkMeaning } from "../ai/corrector";
@@ -62,7 +63,8 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
   const entry = queue[0];
   const it = entry?.item;
   const mistake = entry?.mistake;
-  const waiting = useMemo(() => (entry ? 0 : trainingCards(store.get(), catalog, Date.now()).length), [entry, catalog]);
+  const cloze = entry?.cloze;
+  const waiting = useMemo(() => (entry ? 0 : cardsWaiting(store.get(), catalog, Date.now()).total), [entry, catalog]);
 
   const restart = () => {
     const q = trainingCards(store.get(), catalog, Date.now());
@@ -75,10 +77,11 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
 
   const answer = async (given: string) => {
     if (!entry || !it || result || checking) return;
-    let check: Verdict = checkCard(it, given);
+    // a gap sentence wants exactly the form that belongs there
+    let check: Verdict = cloze ? (norm(given) === norm(cloze.answer) ? "ok" : "wrong") : checkCard(it, given);
     let note = "";
     // another word for the same thing? the AI decides (when there is one)
-    if (check === "wrong" && given.trim() && meta.providerReady && meta.provider.id !== "offline") {
+    if (check === "wrong" && !cloze && given.trim() && meta.providerReady && meta.provider.id !== "offline") {
       setChecking(true);
       try {
         const m = await checkMeaning(meta.provider, { en: it.en, de: it.de }, given);
@@ -156,7 +159,7 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
           ) : null}
           {waiting ? (
             <button type="button" className="btn primary" onClick={restart}>
-              Noch {waiting} {waiting === 1 ? "Karte" : "Karten"}
+              Nächste Runde ({waiting} {waiting === 1 ? "Karte wartet" : "Karten warten"})
             </button>
           ) : null}
           <button type="button" className="btn ghost" onClick={onBack}>
@@ -179,7 +182,7 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
       <div ref={boxRef} className={`card stack flashcard ${result ? (counts(result.check) ? "flash-ok" : "flash-bad") : ""}`}>
         <span className="eyebrow">
           {mistake ? (mistake.lookup ? "Nachgeschlagen · " : "Dein Fehlerwort · ") : ""}
-          {cardHint(it)}
+          {cloze ? "Welche Form passt in den Satz?" : cardHint(it)}
         </span>
         {entry.hold === "hold" ? (
           <span className="small" style={{ color: "var(--rust)" }}>
@@ -190,7 +193,20 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
             Rostet · schon zweimal per Karte aufgehalten: nur ein Satz repariert sie jetzt
           </span>
         ) : null}
-        <div className="drill-prompt">{it.en}</div>
+        {cloze ? (
+          <>
+            <div className="drill-prompt cloze">
+              {cloze.before}
+              <span className="gap">{result ? cloze.answer : "___"}</span>
+              {cloze.after}
+            </div>
+            <p className="small muted" style={{ textAlign: "center" }}>
+              {cloze.hint}
+            </p>
+          </>
+        ) : (
+          <div className="drill-prompt">{it.en}</div>
+        )}
         {!result ? (
           <>
             <form
@@ -215,7 +231,7 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
                 value={typedText}
                 onChange={(e) => setTyped(e.target.value)}
                 onClick={() => setKeys(true)}
-                placeholder={it.kind === "noun" ? "der/die/das …" : "Dein Wort …"}
+                placeholder={cloze ? "Was gehört in die Lücke?" : it.kind === "noun" ? "der/die/das …" : "Dein Wort …"}
               />
               <button type="submit" className="btn primary" disabled={!typedText.trim() || checking}>
                 Prüfen
@@ -250,15 +266,16 @@ export function CardsView({ onBack, onMaintenance }: { onBack: () => void; onMai
               </p>
             ) : null}
             {result.note ? <p className="small muted">{result.note}</p> : null}
-            {mistake && !mistake.lookup ? (
+            {mistake && !mistake.lookup && !cloze ? (
               <p className="small">
                 Im Satz hattest du: <s className="was">{mistake.wrong}</s>
               </p>
             ) : null}
             <div className="sentence">
-              <p className="answer-big">{it.de}</p>
-              <SpeakButton text={it.de} />
+              <p className="answer-big">{cloze ? cloze.answer : it.de}</p>
+              <SpeakButton text={cloze ? cloze.answer : it.de} />
             </div>
+            {cloze && norm(cloze.answer) !== norm(it.de) ? <p className="small">Grundform: {it.de}</p> : null}
             {forms(it) ? <p className="small">{forms(it)}</p> : null}
             <p className="small muted">{mistake ? `Richtig: ${mistake.sentence}` : it.example.de}</p>
             {result.check === "synonym" ? (
